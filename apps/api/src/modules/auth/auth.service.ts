@@ -418,10 +418,18 @@ export class AuthService {
     }
 
     if (phoneOwner) {
+      if (
+        phoneOwner.openId &&
+        phoneOwner.openId !== openId &&
+        !phoneOwner.openId.startsWith("mock-")
+      ) {
+        throw new UnauthorizedException("该手机号已绑定其他微信账号，请联系客服处理");
+      }
+
       return this.prisma.user.update({
         where: { id: phoneOwner.id },
         data: {
-          openId: phoneOwner.openId ?? openId,
+          openId,
           nickname: phoneOwner.nickname ?? data.nickname
         }
       });

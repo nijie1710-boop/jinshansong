@@ -165,6 +165,8 @@ export interface UserProfile {
 
 export interface UserSession {
   token: string;
+  loginMode?: "mock" | "real";
+  openId?: string;
   user: UserProfile;
 }
 

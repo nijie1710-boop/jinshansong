@@ -122,6 +122,14 @@ WECHAT_MERCHANT_APP_SECRET="商家端 AppSecret"
 ```
 
 正式模式下后端会调用微信 `code2Session`，并在微信手机号授权 code 存在时读取手机号；商家端仍以“已审核入驻手机号”作为进入门店工作台的绑定依据。
+用户端登录会绑定微信 openId；如果手机号之前由本地 mock 数据绑定，真实登录会升级为真实 openId。商家端可直接用微信手机号授权匹配入驻申请，H5 或授权失败时再手动填写入驻手机号。
+
+切换真实登录后建议执行：
+
+```bash
+pnpm check:miniapp
+pnpm build:mp:real
+```
 
 ## 当前能力
 

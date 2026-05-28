@@ -40,6 +40,10 @@ function isHttpsUrl(value) {
   return /^https:\/\//i.test(value || "");
 }
 
+function isWechatAppId(value) {
+  return /^wx[0-9A-Za-z]{16}$/.test(value || "");
+}
+
 function inspectMiniapp(name, appDir, appIdEnvKey) {
   const manifestPath = join(root, appDir, "src/manifest.json");
   const buildAppJsonPath = join(root, appDir, "dist/build/mp-weixin/app.json");
@@ -63,6 +67,30 @@ inspectMiniapp("用户端", "apps/user-miniapp", "MP_WEIXIN_USER_APP_ID");
 inspectMiniapp("商家端", "apps/merchant-miniapp", "MP_WEIXIN_MERCHANT_APP_ID");
 
 addCheck(Boolean(env.VITE_MP_API_BASE_URL), "error", "VITE_MP_API_BASE_URL 已配置");
+if (env.WECHAT_LOGIN_MODE === "real") {
+  addCheck(isWechatAppId(env.WECHAT_USER_APP_ID), "error", "用户端 WECHAT_USER_APP_ID 格式正确");
+  addCheck(Boolean(env.WECHAT_USER_APP_SECRET), "error", "用户端 WECHAT_USER_APP_SECRET 已配置");
+  addCheck(
+    env.WECHAT_USER_APP_ID === env.MP_WEIXIN_USER_APP_ID,
+    "error",
+    "用户端登录 AppID 与小程序 AppID 一致"
+  );
+  addCheck(
+    isWechatAppId(env.WECHAT_MERCHANT_APP_ID),
+    "error",
+    "商家端 WECHAT_MERCHANT_APP_ID 格式正确"
+  );
+  addCheck(
+    Boolean(env.WECHAT_MERCHANT_APP_SECRET),
+    "error",
+    "商家端 WECHAT_MERCHANT_APP_SECRET 已配置"
+  );
+  addCheck(
+    env.WECHAT_MERCHANT_APP_ID === env.MP_WEIXIN_MERCHANT_APP_ID,
+    "error",
+    "商家端登录 AppID 与小程序 AppID 一致"
+  );
+}
 if (env.MP_WEIXIN_MODE === "real") {
   addCheck(isHttpsUrl(env.VITE_MP_API_BASE_URL), "error", "正式小程序 API 必须使用 HTTPS");
   addCheck(isHttpsUrl(env.API_PUBLIC_BASE_URL), "error", "正式小程序图片访问域名必须使用 HTTPS");

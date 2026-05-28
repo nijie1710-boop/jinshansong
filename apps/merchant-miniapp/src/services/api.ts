@@ -155,6 +155,8 @@ export type StoreApplicationPayload = {
 export interface MerchantLoginResult {
   canLogin: boolean;
   message?: string;
+  loginMode?: "mock" | "real";
+  openId?: string;
   token?: string;
   store?: MerchantStore;
   application?: StoreApplication | null;
