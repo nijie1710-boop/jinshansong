@@ -574,6 +574,25 @@ async function main() {
       }
     }),
     prisma.systemConfig.upsert({
+      where: { key: "service_area" },
+      update: {
+        value: {
+          city: "福州市",
+          enabledDistricts: ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"],
+          note: "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+        }
+      },
+      create: {
+        key: "service_area",
+        value: {
+          city: "福州市",
+          enabledDistricts: ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"],
+          note: "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+        },
+        remark: "用户端定位、地址校验和订单报价服务范围配置"
+      }
+    }),
+    prisma.systemConfig.upsert({
       where: { key: "delivery_aggregation" },
       update: {
         value: {

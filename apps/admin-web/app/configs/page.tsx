@@ -5,7 +5,8 @@ import {
   saveDeliveryAggregationConfig,
   saveDeliveryConfig,
   saveFinanceConfig,
-  saveOrderFlowConfig
+  saveOrderFlowConfig,
+  saveServiceAreaConfig
 } from "./actions";
 
 function configValue(configs: Awaited<ReturnType<typeof getSystemConfigs>>, key: string) {
@@ -25,6 +26,13 @@ function stringValue(config: Record<string, unknown>, key: string, fallback = ""
 function boolValue(config: Record<string, unknown>, key: string, fallback: boolean) {
   const raw = config[key];
   return typeof raw === "boolean" ? raw : fallback;
+}
+
+function stringArrayValue(config: Record<string, unknown>, key: string, fallback: string[]) {
+  const raw = config[key];
+  return Array.isArray(raw)
+    ? raw.filter((item): item is string => typeof item === "string")
+    : fallback;
 }
 
 const defaultDeliveryProviders = [
@@ -225,6 +233,7 @@ function ToggleField({
 export default async function ConfigsPage() {
   const configs = await getSystemConfigs();
   const delivery = configValue(configs, "delivery");
+  const serviceArea = configValue(configs, "service_area");
   const deliveryAggregation = configValue(configs, "delivery_aggregation");
   const providers = providerConfigs(deliveryAggregation);
   const commission = configValue(configs, "commission");
@@ -256,6 +265,44 @@ export default async function ConfigsPage() {
                 suffix="元"
               />
             </div>
+            <SaveButton />
+          </form>
+        </Panel>
+
+        <Panel title="服务范围">
+          <form action={saveServiceAreaConfig} className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextField
+                defaultValue={stringValue(serviceArea, "city", "福州市")}
+                label="服务城市"
+                name="city"
+              />
+              <TextField
+                defaultValue={stringArrayValue(serviceArea, "enabledDistricts", [
+                  "鼓楼区",
+                  "台江区",
+                  "仓山区",
+                  "晋安区",
+                  "马尾区",
+                  "长乐区"
+                ]).join("、")}
+                label="已开通区域"
+                name="enabledDistricts"
+                placeholder="鼓楼区、台江区、仓山区"
+              />
+            </div>
+            <TextField
+              defaultValue={stringValue(
+                serviceArea,
+                "note",
+                "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+              )}
+              label="运营备注"
+              name="note"
+            />
+            <p className="text-sm text-[#666666]">
+              用户端地址、确认订单报价和后端下单都会校验该范围；后续可扩展到地图围栏和门店半径。
+            </p>
             <SaveButton />
           </form>
         </Panel>

@@ -125,6 +125,18 @@ function numberFromConfig(config: ConfigRecord, key: string, fallback: number) {
   return typeof value === "number" ? value : fallback;
 }
 
+function stringFromConfig(config: ConfigRecord, key: string, fallback: string) {
+  const value = config[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function stringArrayFromConfig(config: ConfigRecord, key: string, fallback: string[]) {
+  const value = config[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : fallback;
+}
+
 function statusLabel(status: OrderStatus) {
   const labels: Record<OrderStatus, string> = {
     CREATED: "待支付",
@@ -1015,8 +1027,28 @@ export class OrderService {
       throw new BadRequestException("请先添加收货地址");
     }
 
-    if (address.city !== "福州市") {
-      throw new BadRequestException("金闪送 MVP 仅支持福州同城订单");
+    const serviceArea = await this.systemConfig("service_area", {
+      city: "福州市",
+      enabledDistricts: ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"]
+    });
+    const serviceCity = stringFromConfig(serviceArea, "city", "福州市");
+    const enabledDistricts = stringArrayFromConfig(serviceArea, "enabledDistricts", [
+      "鼓楼区",
+      "台江区",
+      "仓山区",
+      "晋安区",
+      "马尾区",
+      "长乐区"
+    ]);
+
+    if (address.city !== serviceCity) {
+      throw new BadRequestException(`金闪送第一阶段仅支持${serviceCity}同城订单`);
+    }
+
+    if (!enabledDistricts.includes(address.district)) {
+      throw new BadRequestException(
+        `当前地址暂未开通，第一阶段支持：${enabledDistricts.join("、")}`
+      );
     }
 
     return address;

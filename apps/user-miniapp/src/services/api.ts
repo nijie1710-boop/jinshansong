@@ -167,6 +167,35 @@ export type WechatLoginPayload = {
   nickname?: string;
 };
 
+export class ApiRequestError extends Error {
+  statusCode?: number;
+
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.statusCode = statusCode;
+  }
+}
+
+function responseErrorMessage(data: unknown) {
+  if (typeof data === "string") {
+    return data;
+  }
+  if (data && typeof data === "object") {
+    const record = data as { message?: unknown; error?: unknown };
+    if (Array.isArray(record.message)) {
+      return record.message.filter((item): item is string => typeof item === "string").join("，");
+    }
+    if (typeof record.message === "string") {
+      return record.message;
+    }
+    if (typeof record.error === "string") {
+      return record.error;
+    }
+  }
+  return "接口请求失败";
+}
+
 function getStorageString(key: string) {
   const value = uni.getStorageSync(key);
   return typeof value === "string" ? value : "";
@@ -209,7 +238,7 @@ export function request<T>(
           resolve(response.data as T);
           return;
         }
-        reject(new Error(typeof response.data === "string" ? response.data : "接口请求失败"));
+        reject(new ApiRequestError(responseErrorMessage(response.data), response.statusCode));
       },
       fail(error) {
         reject(error);

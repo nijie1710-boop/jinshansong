@@ -10,6 +10,16 @@
       <text class="arrow">›</text>
     </view>
 
+    <view class="service-area-card" :class="{ warning: !isAddressInServiceArea }">
+      <view>
+        <text class="service-title">
+          {{ isAddressInServiceArea ? "福州核心城区即时送" : "当前地址暂未开通" }}
+        </text>
+        <text class="muted">{{ serviceAreaText }}</text>
+      </view>
+      <button class="service-action" @tap="openAddressList">切换地址</button>
+    </view>
+
     <view class="card product-card">
       <view class="product-image">
         <view class="mini-device"></view>
@@ -84,7 +94,7 @@
         </text>
       </view>
       <view v-else class="delivery-choice unavailable">
-        <text>当前地址暂无可用即时配送</text>
+        <text>{{ quoteError || "当前地址暂无可用即时配送" }}</text>
         <text class="muted">可尝试更换地址或稍后下单</text>
       </view>
       <view class="delivery-options">
@@ -128,8 +138,8 @@
         <text class="muted">实付款</text>
         <text class="payable">¥{{ quote.payableAmount }}</text>
       </view>
-      <button class="primary-button" :disabled="submitting" @tap="submitOrder">
-        {{ submitting ? "支付中..." : "提交订单" }}
+      <button class="primary-button" :disabled="submitting || quoting" @tap="submitOrder">
+        {{ submitting ? "支付中..." : quoting ? "报价中..." : "提交订单" }}
       </button>
     </view>
   </view>
@@ -138,7 +148,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { api, type ApiAddress, type ApiProduct, type ApiQuote } from "../../services/api";
+import {
+  ApiRequestError,
+  api,
+  type ApiAddress,
+  type ApiProduct,
+  type ApiQuote
+} from "../../services/api";
+
+const supportedDistricts = ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"];
 
 const address = ref<ApiAddress>({
   id: "",
@@ -174,6 +192,7 @@ const submitting = ref(false);
 const quoting = ref(false);
 const riderNo = ref("0086");
 const promoterCode = ref("FZTG001");
+const quoteError = ref("");
 const quote = ref<ApiQuote>({
   store: { id: "", name: "待匹配门店" },
   goodsAmount: product.value.price,
@@ -189,6 +208,20 @@ const quote = ref<ApiQuote>({
 const maskedPhone = computed(() =>
   address.value.phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2")
 );
+const isAddressInServiceArea = computed(
+  () =>
+    address.value.city === "福州市" &&
+    supportedDistricts.includes(address.value.district.trim())
+);
+const serviceAreaText = computed(() => {
+  if (!address.value.id) {
+    return "请先添加福州市收货地址，报价会按定位和门店库存计算。";
+  }
+  if (!isAddressInServiceArea.value) {
+    return `第一阶段暂支持：${supportedDistricts.join("、")}。`;
+  }
+  return `已覆盖 ${address.value.district}，下单前会自动匹配附近门店和配送平台。`;
+});
 
 async function loadConfirmData() {
   const [addresses, productData] = await Promise.all([api.addresses(), api.product(skuId.value)]);
@@ -201,7 +234,13 @@ async function refreshQuote() {
   if (!address.value.id || !skuId.value || quoting.value) {
     return;
   }
+  if (!isAddressInServiceArea.value) {
+    quoteError.value = "当前地址不在第一阶段服务范围内";
+    quote.value = { ...quote.value, selectedDelivery: null, deliveryOptions: [] };
+    return;
+  }
   quoting.value = true;
+  quoteError.value = "";
   try {
     quote.value = await api.quote({
       addressId: address.value.id,
@@ -209,6 +248,10 @@ async function refreshQuote() {
       riderNo: riderNo.value.trim(),
       promoterCode: promoterCode.value.trim()
     });
+  } catch (error) {
+    quote.value = { ...quote.value, selectedDelivery: null, deliveryOptions: [] };
+    quoteError.value = error instanceof Error ? error.message : "报价失败，请稍后重试";
+    throw error;
   } finally {
     quoting.value = false;
   }
@@ -233,8 +276,12 @@ async function submitOrder() {
     uni.showToast({ title: "请确认地址和商品", icon: "none" });
     return;
   }
+  if (!isAddressInServiceArea.value) {
+    uni.showToast({ title: "当前地址不在服务范围", icon: "none" });
+    return;
+  }
   if (!quote.value.selectedDelivery) {
-    uni.showToast({ title: "当前地址暂无可用配送", icon: "none" });
+    uni.showToast({ title: quoteError.value || "当前地址暂无可用配送", icon: "none" });
     return;
   }
   submitting.value = true;
@@ -250,8 +297,12 @@ async function submitOrder() {
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/order/detail?id=${paid.id}` });
     }, 500);
-  } catch {
-    uni.showToast({ title: "下单失败，请检查后端服务", icon: "none" });
+  } catch (error) {
+    const message =
+      error instanceof ApiRequestError || error instanceof Error
+        ? error.message
+        : "下单失败，请检查后端服务";
+    uni.showToast({ title: message, icon: "none" });
   } finally {
     submitting.value = false;
   }
@@ -290,6 +341,48 @@ onLoad((query) => {
 
 .address-card {
   gap: 10px;
+}
+
+.service-area-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.05);
+}
+
+.service-area-card.warning {
+  background: #fff5f5;
+}
+
+.service-title {
+  display: block;
+  margin-bottom: 4px;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.service-action {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.service-action::after {
+  border: 0;
 }
 
 .section-head,

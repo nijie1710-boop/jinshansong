@@ -29,6 +29,27 @@ export async function saveDeliveryConfig(formData: FormData) {
   revalidatePath("/configs");
 }
 
+export async function saveServiceAreaConfig(formData: FormData) {
+  const districts = stringValue(formData, "enabledDistricts")
+    .split(/[,\n，、]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  await updateSystemConfig(
+    "service_area",
+    {
+      city: stringValue(formData, "city") || "福州市",
+      enabledDistricts:
+        districts.length > 0
+          ? districts
+          : ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"],
+      note: stringValue(formData, "note")
+    },
+    "用户端定位、地址校验和订单报价服务范围配置"
+  );
+  revalidatePath("/configs");
+}
+
 export async function saveCommissionConfig(formData: FormData) {
   await updateSystemConfig(
     "commission",
