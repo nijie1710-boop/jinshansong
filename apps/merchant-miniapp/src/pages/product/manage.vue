@@ -80,10 +80,26 @@
           >主图会展示在用户端首页和商品详情页；修改图片、说明、规格或销售价后会重新进入审核。</text
         >
       </view>
+      <view class="upload-readiness-card">
+        <text class="upload-readiness-title">图片上传提示</text>
+        <text
+          >本地预览可先使用 localhost 图片；微信真机和正式版需要 HTTPS 图片域名，后续接入
+          COS/OSS/CDN 后即可正常显示。</text
+        >
+      </view>
 
       <view class="field-label">商品主图</view>
       <view class="image-upload" @tap="chooseCoverImage">
-        <image v-if="form.coverUrl" class="preview-image" :src="form.coverUrl" mode="aspectFill" />
+        <image
+          v-if="displayImageUrl(form.coverUrl)"
+          class="preview-image"
+          :src="displayImageUrl(form.coverUrl)"
+          mode="aspectFill"
+        />
+        <view v-else-if="isHttpImageBlocked(form.coverUrl)" class="blocked-image-note">
+          <text>HTTPS 后显示</text>
+          <text>本地 HTTP 图片已保存</text>
+        </view>
         <view v-else class="upload-inner">
           <text class="upload-plus">+</text>
           <text>{{ uploading ? "上传中..." : "上传商品主图" }}</text>
@@ -97,7 +113,13 @@
       </view>
       <view class="detail-images">
         <view v-for="(url, index) in form.detailImageUrls" :key="url" class="detail-image-item">
-          <image class="detail-image" :src="url" mode="aspectFill" />
+          <image
+            v-if="displayImageUrl(url)"
+            class="detail-image"
+            :src="displayImageUrl(url)"
+            mode="aspectFill"
+          />
+          <view v-else class="blocked-detail-note">HTTPS 后显示</view>
           <text class="remove-image" @tap.stop="removeDetailImage(index)">×</text>
         </view>
         <view
@@ -227,16 +249,19 @@
       <view class="product-row">
         <view
           class="product-image"
-          :style="{ background: product.coverUrl ? '#f7f8fa' : product.imageTone }"
+          :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
         >
           <image
-            v-if="product.coverUrl"
+            v-if="displayImageUrl(product.coverUrl)"
             class="product-cover"
-            :src="product.coverUrl"
+            :src="displayImageUrl(product.coverUrl)"
             mode="aspectFill"
           />
-          <view v-if="!product.coverUrl" class="device-shape"></view>
-          <text v-if="!product.coverUrl">金闪送</text>
+          <view v-if="!displayImageUrl(product.coverUrl)" class="device-shape"></view>
+          <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text"
+            >HTTPS</text
+          >
+          <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
         </view>
         <view class="product-info">
           <view class="product-title-row">
@@ -267,11 +292,15 @@
         </view>
         <view class="image-upload compact-upload" @tap="chooseEditCoverImage">
           <image
-            v-if="editForm.coverUrl"
+            v-if="displayImageUrl(editForm.coverUrl)"
             class="preview-image"
-            :src="editForm.coverUrl"
+            :src="displayImageUrl(editForm.coverUrl)"
             mode="aspectFill"
           />
+          <view v-else-if="isHttpImageBlocked(editForm.coverUrl)" class="blocked-image-note">
+            <text>HTTPS 后显示</text>
+            <text>本地 HTTP 图片已保存</text>
+          </view>
           <view v-else class="upload-inner">
             <text class="upload-plus">+</text>
             <text>{{ uploading ? "上传中..." : "上传主图" }}</text>
@@ -288,7 +317,13 @@
             :key="url"
             class="detail-image-item"
           >
-            <image class="detail-image" :src="url" mode="aspectFill" />
+            <image
+              v-if="displayImageUrl(url)"
+              class="detail-image"
+              :src="displayImageUrl(url)"
+              mode="aspectFill"
+            />
+            <view v-else class="blocked-detail-note">HTTPS 后显示</view>
             <text class="remove-image" @tap.stop="removeEditDetailImage(index)">×</text>
           </view>
           <view
@@ -468,6 +503,24 @@ const visibleCount = computed(
 );
 const hasMerchantAccess = computed(() => Boolean(merchantStore.value?.code && getMerchantToken()));
 
+function displayImageUrl(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  if (value.startsWith("http://")) {
+    return "";
+  }
+  // #endif
+  return value;
+}
+
+function isHttpImageBlocked(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  return value.startsWith("http://");
+  // #endif
+  return false;
+}
+
 function getInputValue(event: unknown) {
   return String((event as { detail?: { value?: string } }).detail?.value ?? "");
 }
@@ -519,12 +572,8 @@ function readImageAsDataUrl(filePath: string) {
     // #ifdef H5
     fetch(filePath)
       .then((response) => response.blob())
-      .then((blob) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      })
+      .then((blob) => compressBlobToDataUrl(blob))
+      .then(resolve)
       .catch(reject);
     // #endif
 
@@ -556,6 +605,39 @@ function readImageAsDataUrl(filePath: string) {
     // #endif
   });
 }
+
+// #ifdef H5
+function compressBlobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1280;
+      const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * ratio));
+      const height = Math.max(1, Math.round(image.height * ratio));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+
+      URL.revokeObjectURL(objectUrl);
+      if (!context) {
+        reject(new Error("图片压缩失败"));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.72));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("图片读取失败"));
+    };
+    image.src = objectUrl;
+  });
+}
+// #endif
 
 function compressImageForUpload(filePath: string) {
   return new Promise<string>((resolve) => {
@@ -1187,6 +1269,49 @@ onPullDownRefresh(() => {
   font-weight: 500;
 }
 
+.upload-readiness-card {
+  display: flex;
+  margin: 10px 0 16px;
+  padding: 12px 14px;
+  flex-direction: column;
+  gap: 5px;
+  border-radius: 16px;
+  background: #fff7ed;
+  color: #99600f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.upload-readiness-title {
+  color: #ff7a00;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.blocked-image-note,
+.blocked-detail-note {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.18)), #fffaf4;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.blocked-image-note {
+  flex-direction: column;
+  gap: 5px;
+}
+
+.blocked-detail-note {
+  padding: 8px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
 .detail-images {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1339,6 +1464,13 @@ onPullDownRefresh(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.blocked-product-text {
+  position: relative;
+  z-index: 1;
+  color: #ff7a00;
+  font-size: 9px;
 }
 
 .device-shape {

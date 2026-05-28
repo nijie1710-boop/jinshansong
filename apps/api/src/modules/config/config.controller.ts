@@ -26,3 +26,13 @@ export class ConfigController {
     return this.configService.upsertSystemConfig(key, body);
   }
 }
+
+@Controller("config")
+export class PublicConfigController {
+  constructor(private readonly configService: ConfigService) {}
+
+  @Get("public")
+  publicConfig() {
+    return this.configService.publicConfig();
+  }
+}

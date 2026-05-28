@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { api, saveUserSession } from "../../services/api";
+import { ApiRequestError, api, saveUserSession } from "../../services/api";
 
 const loading = ref(false);
 
@@ -115,16 +115,22 @@ async function handleLogin(event?: PhoneNumberEvent) {
   try {
     const code = await getWechatLoginCode();
     const phoneCode = event?.detail?.code;
+    const phoneRejected =
+      event?.detail?.errMsg && !phoneCode && !event.detail.errMsg.includes("ok");
     const session = await api.wechatLogin({
       code,
       phoneCode,
       nickname: "金闪送用户"
     });
     saveUserSession(session);
-    uni.showToast({ title: "登录成功", icon: "success" });
+    uni.showToast({ title: phoneRejected ? "已登录，未授权手机号" : "登录成功", icon: "success" });
     setTimeout(goHome, 400);
-  } catch {
-    uni.showToast({ title: "登录失败，请检查后端服务", icon: "none" });
+  } catch (error) {
+    const message =
+      error instanceof ApiRequestError || error instanceof Error
+        ? error.message
+        : "登录失败，请检查后端服务";
+    uni.showToast({ title: message, icon: "none" });
   } finally {
     loading.value = false;
   }

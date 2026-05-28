@@ -47,15 +47,20 @@
         >
           <view
             class="product-image"
-            :style="{ background: product.coverUrl ? '#f7f8fa' : product.imageTone }"
+            :style="{
+              background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone
+            }"
           >
             <image
-              v-if="product.coverUrl"
+              v-if="displayImageUrl(product.coverUrl)"
               class="product-cover"
-              :src="product.coverUrl"
+              :src="displayImageUrl(product.coverUrl)"
               mode="aspectFill"
             />
-            <text v-if="!product.coverUrl">金闪送</text>
+            <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text">
+              HTTPS
+            </text>
+            <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
           </view>
           <view class="product-info">
             <text class="product-name">{{ product.name }}</text>
@@ -112,6 +117,24 @@ const filteredProducts = computed(() => {
       .includes(normalizedKeyword)
   );
 });
+
+function displayImageUrl(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  if (value.startsWith("http://")) {
+    return "";
+  }
+  // #endif
+  return value;
+}
+
+function isHttpImageBlocked(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  return value.startsWith("http://");
+  // #endif
+  return false;
+}
 
 function setKeyword(event: Event) {
   keyword.value = String((event as Event & { detail?: { value?: string } }).detail?.value ?? "");
@@ -291,6 +314,14 @@ onPullDownRefresh(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.blocked-product-text {
+  position: relative;
+  z-index: 1;
+  color: #ff7a00;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .product-info {

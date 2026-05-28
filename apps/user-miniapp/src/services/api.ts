@@ -83,6 +83,14 @@ export interface ApiDeliveryQuoteOption {
   reason?: string;
 }
 
+export interface PublicConfig {
+  serviceArea: {
+    city: string;
+    enabledDistricts: string[];
+    note?: string;
+  };
+}
+
 export interface ApiCoupon {
   id: string;
   title: string;
@@ -248,6 +256,7 @@ export function request<T>(
 }
 
 export const api = {
+  publicConfig: () => request<PublicConfig>("/config/public"),
   mockLogin: () => request<UserSession>("/auth/user/mock-login", { method: "POST" }),
   wechatLogin: (data: WechatLoginPayload) =>
     request<UserSession>("/auth/user/wechat-login", { method: "POST", data }),

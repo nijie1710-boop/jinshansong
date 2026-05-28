@@ -85,7 +85,11 @@
       <view v-if="displayProducts.length === 0" class="empty-card">
         <text class="section-title">{{ searchKeyword ? "没有找到相关商品" : "暂无可售商品" }}</text>
         <text class="muted">
-          {{ searchKeyword ? "换个关键词试试，例如充电线、充电头、手机壳" : "商家提交商品并由后台审核通过后会展示在这里" }}
+          {{
+            searchKeyword
+              ? "换个关键词试试，例如充电线、充电头、手机壳"
+              : "商家提交商品并由后台审核通过后会展示在这里"
+          }}
         </text>
       </view>
       <view
@@ -96,16 +100,19 @@
       >
         <view
           class="product-image"
-          :style="{ background: product.coverUrl ? '#f7f8fa' : product.imageTone }"
+          :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
         >
           <image
-            v-if="product.coverUrl"
+            v-if="displayImageUrl(product.coverUrl)"
             class="product-cover"
-            :src="product.coverUrl"
+            :src="displayImageUrl(product.coverUrl)"
             mode="aspectFill"
           />
-          <view v-if="!product.coverUrl" class="device-shape"></view>
-          <text v-if="!product.coverUrl">金闪送</text>
+          <view v-if="!displayImageUrl(product.coverUrl)" class="device-shape"></view>
+          <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text"
+            >HTTPS</text
+          >
+          <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
         </view>
         <view class="product-body">
           <text class="product-name">{{ product.name }}</text>
@@ -184,6 +191,24 @@ const locationSubtitle = computed(() => {
   }
   return currentLocationName.value;
 });
+
+function displayImageUrl(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  if (value.startsWith("http://")) {
+    return "";
+  }
+  // #endif
+  return value;
+}
+
+function isHttpImageBlocked(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  return value.startsWith("http://");
+  // #endif
+  return false;
+}
 
 function loadCachedLocation() {
   const cached = uni.getStorageSync(LOCATION_CACHE_KEY);
@@ -277,7 +302,9 @@ function chooseHomeLocation() {
 }
 
 function setSearchKeyword(event: Event) {
-  searchKeyword.value = String((event as Event & { detail?: { value?: string } }).detail?.value ?? "");
+  searchKeyword.value = String(
+    (event as Event & { detail?: { value?: string } }).detail?.value ?? ""
+  );
 }
 
 function clearSearch() {
@@ -670,6 +697,14 @@ onPullDownRefresh(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.blocked-product-text {
+  position: relative;
+  z-index: 1;
+  color: #ff7a00;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .device-shape {

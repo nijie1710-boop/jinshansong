@@ -2,16 +2,19 @@
   <view class="page detail-page">
     <view
       class="product-visual"
-      :style="{ background: product.coverUrl ? '#f7f8fa' : product.imageTone }"
+      :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
     >
       <image
-        v-if="product.coverUrl"
+        v-if="displayImageUrl(product.coverUrl)"
         class="cover-image"
-        :src="product.coverUrl"
+        :src="displayImageUrl(product.coverUrl)"
         mode="aspectFill"
       />
-      <view v-if="!product.coverUrl" class="visual-device"></view>
-      <text v-if="!product.coverUrl" class="visual-brand">金闪送</text>
+      <view v-if="!displayImageUrl(product.coverUrl)" class="visual-device"></view>
+      <text v-if="isHttpImageBlocked(product.coverUrl)" class="visual-brand visual-warning">
+        HTTPS 后显示
+      </text>
+      <text v-else-if="!displayImageUrl(product.coverUrl)" class="visual-brand">金闪送</text>
       <text class="visual-hint">门店现货 · 同城即达</text>
     </view>
 
@@ -60,13 +63,15 @@
 
     <view v-if="product.detailImageUrls.length > 0" class="card section">
       <text class="section-title">商品详情</text>
-      <image
-        v-for="url in product.detailImageUrls"
-        :key="url"
-        class="detail-image"
-        :src="url"
-        mode="widthFix"
-      />
+      <view v-for="url in product.detailImageUrls" :key="url" class="detail-image-wrap">
+        <image
+          v-if="displayImageUrl(url)"
+          class="detail-image"
+          :src="displayImageUrl(url)"
+          mode="widthFix"
+        />
+        <view v-else class="blocked-detail-image">HTTPS 图片接入后展示</view>
+      </view>
     </view>
 
     <view class="card section">
@@ -121,6 +126,24 @@ const storeNamesText = computed(() => {
   const names = product.value.storeNames ?? [];
   return names.length > 0 ? names.join("、") : "福州附近审核门店";
 });
+
+function displayImageUrl(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  if (value.startsWith("http://")) {
+    return "";
+  }
+  // #endif
+  return value;
+}
+
+function isHttpImageBlocked(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  return value.startsWith("http://");
+  // #endif
+  return false;
+}
 
 function buyNow() {
   const skuId = product.value.skuId || product.value.skus?.[0]?.id;
@@ -191,6 +214,10 @@ onLoad(async (query) => {
   color: #ff7a00;
   font-size: 26px;
   font-weight: 800;
+}
+
+.visual-warning {
+  font-size: 16px;
 }
 
 .visual-hint {
@@ -290,6 +317,23 @@ onLoad(async (query) => {
   width: 100%;
   border-radius: 14px;
   background: #f7f8fa;
+}
+
+.detail-image-wrap {
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.blocked-detail-image {
+  display: flex;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #ff7a00;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .service-item {

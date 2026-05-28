@@ -13,7 +13,7 @@
     <view class="service-area-card" :class="{ warning: !isAddressInServiceArea }">
       <view>
         <text class="service-title">
-          {{ isAddressInServiceArea ? "福州核心城区即时送" : "当前地址暂未开通" }}
+          {{ isAddressInServiceArea ? `${serviceCity}核心城区即时送` : "当前地址暂未开通" }}
         </text>
         <text class="muted">{{ serviceAreaText }}</text>
       </view>
@@ -153,10 +153,15 @@ import {
   api,
   type ApiAddress,
   type ApiProduct,
-  type ApiQuote
+  type ApiQuote,
+  type PublicConfig
 } from "../../services/api";
 
-const supportedDistricts = ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"];
+const defaultServiceArea: PublicConfig["serviceArea"] = {
+  city: "福州市",
+  enabledDistricts: ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"],
+  note: "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+};
 
 const address = ref<ApiAddress>({
   id: "",
@@ -193,6 +198,7 @@ const quoting = ref(false);
 const riderNo = ref("0086");
 const promoterCode = ref("FZTG001");
 const quoteError = ref("");
+const serviceArea = ref<PublicConfig["serviceArea"]>({ ...defaultServiceArea });
 const quote = ref<ApiQuote>({
   store: { id: "", name: "待匹配门店" },
   goodsAmount: product.value.price,
@@ -208,22 +214,33 @@ const quote = ref<ApiQuote>({
 const maskedPhone = computed(() =>
   address.value.phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2")
 );
+const serviceCity = computed(() => serviceArea.value.city || defaultServiceArea.city);
+const supportedDistricts = computed(() =>
+  serviceArea.value.enabledDistricts.length > 0
+    ? serviceArea.value.enabledDistricts
+    : defaultServiceArea.enabledDistricts
+);
 const isAddressInServiceArea = computed(
   () =>
-    address.value.city === "福州市" &&
-    supportedDistricts.includes(address.value.district.trim())
+    address.value.city === serviceCity.value &&
+    supportedDistricts.value.includes(address.value.district.trim())
 );
 const serviceAreaText = computed(() => {
   if (!address.value.id) {
-    return "请先添加福州市收货地址，报价会按定位和门店库存计算。";
+    return `请先添加${serviceCity.value}收货地址，报价会按定位和门店库存计算。`;
   }
   if (!isAddressInServiceArea.value) {
-    return `第一阶段暂支持：${supportedDistricts.join("、")}。`;
+    return `第一阶段暂支持：${supportedDistricts.value.join("、")}。`;
   }
   return `已覆盖 ${address.value.district}，下单前会自动匹配附近门店和配送平台。`;
 });
 
 async function loadConfirmData() {
+  try {
+    serviceArea.value = (await api.publicConfig()).serviceArea;
+  } catch {
+    serviceArea.value = { ...defaultServiceArea };
+  }
   const [addresses, productData] = await Promise.all([api.addresses(), api.product(skuId.value)]);
   address.value = addresses[0] ?? address.value;
   product.value = productData;

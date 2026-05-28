@@ -24,7 +24,7 @@
       </view>
 
       <view class="field">
-        <text class="field-label">入驻手机号<text class="required-star">*</text></text>
+        <text class="field-label">入驻手机号</text>
         <input
           v-model="loginPhone"
           adjust-position
@@ -32,7 +32,7 @@
           confirm-type="done"
           cursor-spacing="20"
           maxlength="11"
-          placeholder="填写入驻申请手机号"
+          placeholder="微信授权失败时手动填写"
           type="number"
         />
       </view>
@@ -270,6 +270,7 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue";
 import {
+  ApiRequestError,
   api,
   saveMerchantSession,
   type MerchantSession,
@@ -618,22 +619,22 @@ async function checkStatus() {
 
 async function handleLogin(event?: PhoneNumberEvent) {
   if (loading.value) return;
-  if (!loginPhone.value.trim()) {
-    uni.showToast({ title: "请输入申请手机号", icon: "none" });
-    return;
-  }
 
   loading.value = true;
   try {
     const code = await getWechatLoginCode();
+    const phoneCode = event?.detail?.code;
     const result = await api.wechatLogin({
       code,
-      phoneCode: event?.detail?.code,
-      phone: loginPhone.value.trim()
+      phoneCode,
+      phone: loginPhone.value.trim() || undefined
     });
     application.value = result.application ?? null;
     if (!result.canLogin || !result.token || !result.store) {
-      uni.showToast({ title: result.message || "暂不能登录", icon: "none" });
+      uni.showToast({
+        title: result.message || (phoneCode ? "暂不能登录" : "请授权微信手机号或填写入驻手机号"),
+        icon: "none"
+      });
       return;
     }
     saveMerchantSession({ token: result.token, store: result.store });
@@ -641,8 +642,12 @@ async function handleLogin(event?: PhoneNumberEvent) {
     setTimeout(() => {
       uni.switchTab({ url: "/pages/home/index" });
     }, 400);
-  } catch {
-    uni.showToast({ title: "登录失败，请检查后端服务", icon: "none" });
+  } catch (error) {
+    const message =
+      error instanceof ApiRequestError || error instanceof Error
+        ? error.message
+        : "登录失败，请检查后端服务";
+    uni.showToast({ title: message, icon: "none" });
   } finally {
     loading.value = false;
   }
