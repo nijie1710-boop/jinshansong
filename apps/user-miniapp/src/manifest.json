@@ -1,0 +1,23 @@
+{
+  "name": "金闪送用户端",
+  "appid": "__UNI__JINSHANSONG_USER",
+  "description": "福州同城数码配件即时闪购平台用户端 MVP",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "mp-weixin": {
+    "appid": "wx84303abed86c258e",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "lazyCodeLoading": "requiredComponents",
+    "usingComponents": true
+  },
+  "h5": {
+    "devServer": {
+      "port": 5173
+    }
+  }
+}

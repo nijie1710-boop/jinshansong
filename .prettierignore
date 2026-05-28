@@ -1,0 +1,9 @@
+node_modules
+dist
+.next
+unpackage
+coverage
+pnpm-lock.yaml
+prisma/generated
+docs/*.docx
+design/*.png

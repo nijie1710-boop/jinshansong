@@ -1,0 +1,47 @@
+{
+  "name": "jinshansong",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @jinshansong/api dev",
+    "dev:admin": "pnpm --filter @jinshansong/admin-web dev",
+    "dev:user": "pnpm --filter @jinshansong/user-miniapp dev:h5",
+    "dev:merchant": "pnpm --filter @jinshansong/merchant-miniapp dev:h5",
+    "mp:local": "node scripts/configure-miniapp-appids.mjs --mode=local",
+    "mp:real": "node scripts/configure-miniapp-appids.mjs --mode=real",
+    "build:mp": "pnpm build:mp:user && pnpm build:mp:merchant",
+    "build:mp:local": "pnpm mp:local && pnpm build:mp",
+    "build:mp:real": "pnpm mp:real && pnpm build:mp",
+    "build:mp:user": "pnpm --filter @jinshansong/user-miniapp build:mp-weixin",
+    "build:mp:merchant": "pnpm --filter @jinshansong/merchant-miniapp build:mp-weixin",
+    "open:mp:user": "\"/Applications/wechatwebdevtools.app/Contents/MacOS/cli\" open --project apps/user-miniapp/dist/build/mp-weixin",
+    "open:mp:merchant": "\"/Applications/wechatwebdevtools.app/Contents/MacOS/cli\" open --project apps/merchant-miniapp/dist/build/mp-weixin",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test:data-flow": "node scripts/smoke-data-flow.mjs",
+    "format": "prettier --write .",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma --name init",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@prisma/client": "^6.19.3",
+    "@types/node": "^24.9.2",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "prisma": "^6.19.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  }
+}

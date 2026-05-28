@@ -1,0 +1,735 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  FROZEN
+  BLOCKED
+}
+
+enum FirstOrderStatus {
+  NOT_USED
+  USED
+}
+
+enum CategoryStatus {
+  ENABLED
+  DISABLED
+}
+
+enum ProductStatus {
+  ON_SALE
+  OFF_SALE
+}
+
+enum ProductReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StoreStatus {
+  OPEN
+  CLOSED
+  DISABLED
+}
+
+enum StoreApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StoreCommissionMode {
+  NORMAL
+  GENERAL_AGENT
+}
+
+enum CouponStatus {
+  UNUSED
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  WAITING_STORE_ACCEPT
+  TRANSFERRED
+  STORE_ACCEPTED
+  READY_FOR_PICKUP
+  RIDER_PICKED_UP
+  DELIVERING
+  COMPLETED
+  EXCEPTION
+  CANCELLED
+  REFUNDED
+}
+
+enum PayStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentRecordType {
+  PAYMENT
+  REFUND
+}
+
+enum PaymentRecordStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PickStatus {
+  NOT_READY
+  READY
+  PICKED_UP
+}
+
+enum RiskStatus {
+  NORMAL
+  WARNING
+  BLOCKED
+}
+
+enum RiskTargetType {
+  USER
+  ORDER
+  RIDER
+  PROMOTER
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RiskEventStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum CommissionType {
+  STORE
+  RIDER
+  PROMOTER
+}
+
+enum CommissionStatus {
+  PENDING
+  SETTLED
+  CANCELLED
+}
+
+enum SettlementType {
+  STORE
+  RIDER
+  PROMOTER
+}
+
+enum SettlementStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum DeliveryTaskStatus {
+  PENDING
+  DISPATCHING
+  ACCEPTED
+  READY_FOR_PICKUP
+  PICKED_UP
+  DELIVERING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS
+  FINANCE
+  CUSTOMER_SERVICE
+}
+
+model User {
+  id                  String           @id @default(cuid())
+  phone               String?          @unique
+  openId              String?          @unique
+  deviceId            String?
+  nickname            String?
+  isNewUser           Boolean          @default(true)
+  firstOrderStatus    FirstOrderStatus @default(NOT_USED)
+  weeklyReferGetTimes Int              @default(0)
+  status              UserStatus       @default(ACTIVE)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  addresses Address[]
+  coupons   Coupon[]
+  orders    Order[]
+
+  @@index([deviceId])
+  @@map("users")
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  phone     String
+  city      String
+  district  String
+  detail    String
+  latitude  Decimal? @db.Decimal(10, 6)
+  longitude Decimal? @db.Decimal(10, 6)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Category {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  icon      String?
+  sort      Int            @default(0)
+  status    CategoryStatus @default(ENABLED)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String              @id @default(cuid())
+  categoryId      String?
+  name            String
+  slug            String              @unique
+  description     String?
+  coverUrl        String?
+  detailImageUrls Json?
+  status          ProductStatus       @default(ON_SALE)
+  reviewStatus    ProductReviewStatus @default(APPROVED)
+  reviewRemark    String?
+  reviewedAt      DateTime?
+  sort            Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  category   Category?   @relation(fields: [categoryId], references: [id])
+  skus       Sku[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([reviewStatus])
+  @@map("products")
+}
+
+model Sku {
+  id                 String        @id @default(cuid())
+  productId          String
+  code               String        @unique
+  name               String
+  imageUrl           String?
+  salePrice          Decimal       @db.Decimal(10, 2)
+  defaultSettlePrice Decimal       @db.Decimal(10, 2)
+  stock              Int           @default(0)
+  status             ProductStatus @default(ON_SALE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id])
+  storeSkus  StoreSku[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("skus")
+}
+
+model Store {
+  id                  String              @id @default(cuid())
+  code                String              @unique
+  name                String
+  phone               String?
+  address             String
+  latitude            Decimal?            @db.Decimal(10, 6)
+  longitude           Decimal?            @db.Decimal(10, 6)
+  status              StoreStatus         @default(OPEN)
+  commissionMode      StoreCommissionMode @default(NORMAL)
+  acceptOrderSwitch   Boolean             @default(true)
+  autoTransferSwitch  Boolean             @default(true)
+  voiceReminderSwitch Boolean             @default(true)
+  weeklyOrderCount    Int                 @default(0)
+  weeklyCommission    Decimal             @default(0) @db.Decimal(10, 2)
+  lastSettleTime      DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  storeSkus        StoreSku[]
+  fulfilledOrders  Order[]                       @relation("OrderFulfilledStore")
+  currentOrders    Order[]                       @relation("OrderCurrentStore")
+  transferLogsFrom StoreTransferLog[]            @relation("StoreTransferFrom")
+  transferLogsTo   StoreTransferLog[]            @relation("StoreTransferTo")
+  applications     StoreApplication[]
+  merchantAccounts MerchantAccount[]
+  deliveryConfigs  StoreDeliveryProviderConfig[]
+
+  @@index([status])
+  @@map("stores")
+}
+
+model StoreDeliveryProviderConfig {
+  id             String   @id @default(cuid())
+  storeId        String
+  provider       String
+  providerShopId String?
+  enabled        Boolean  @default(true)
+  serviceCode    String?
+  contactName    String?
+  contactPhone   String?
+  remark         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, provider])
+  @@index([provider])
+  @@map("store_delivery_provider_configs")
+}
+
+model MerchantAccount {
+  id          String        @id @default(cuid())
+  storeId     String
+  phone       String        @unique
+  openId      String?       @unique
+  name        String?
+  status      AccountStatus @default(ACTIVE)
+  lastLoginAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([status])
+  @@map("merchant_accounts")
+}
+
+model StoreApplication {
+  id                String                 @id @default(cuid())
+  applicantName     String
+  applicantPhone    String
+  storeName         String
+  city              String                 @default("福州市")
+  district          String
+  address           String
+  businessLicenseNo String?
+  categoryNote      String?
+  status            StoreApplicationStatus @default(PENDING)
+  reviewRemark      String?
+  reviewedAt        DateTime?
+  storeId           String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  store Store? @relation(fields: [storeId], references: [id])
+
+  @@index([applicantPhone])
+  @@index([status])
+  @@index([storeId])
+  @@map("store_applications")
+}
+
+model StoreSku {
+  id          String   @id @default(cuid())
+  storeId     String
+  skuId       String
+  stock       Int      @default(0)
+  settlePrice Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+  sku   Sku   @relation(fields: [skuId], references: [id])
+
+  @@unique([storeId, skuId])
+  @@index([skuId])
+  @@map("store_skus")
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNo             String      @unique
+  userId              String
+  storeId             String?
+  currentStoreId      String?
+  receiverName        String
+  receiverPhone       String
+  receiverCity        String
+  receiverDistrict    String
+  receiverAddress     String
+  receiverLatitude    Decimal?    @db.Decimal(10, 6)
+  receiverLongitude   Decimal?    @db.Decimal(10, 6)
+  riderNo             String?
+  promoterCode        String?
+  goodsAmount         Decimal     @default(0) @db.Decimal(10, 2)
+  storeSettleAmount   Decimal     @default(0) @db.Decimal(10, 2)
+  deliveryFeeCost     Decimal     @default(0) @db.Decimal(10, 2)
+  deliveryFeeCharged  Decimal     @default(0) @db.Decimal(10, 2)
+  userDiscountAmount  Decimal     @default(0) @db.Decimal(10, 2)
+  storeCommission     Decimal     @default(0) @db.Decimal(10, 2)
+  riderBonus          Decimal     @default(0) @db.Decimal(10, 2)
+  promoterCommission  Decimal     @default(0) @db.Decimal(10, 2)
+  payableAmount       Decimal     @default(0) @db.Decimal(10, 2)
+  platformIncome      Decimal     @default(0) @db.Decimal(10, 2)
+  netProfit           Decimal     @default(0) @db.Decimal(10, 2)
+  transferCount       Int         @default(0)
+  rejectCount         Int         @default(0)
+  orderStatus         OrderStatus @default(CREATED)
+  payStatus           PayStatus   @default(UNPAID)
+  pickStatus          PickStatus  @default(NOT_READY)
+  riskStatus          RiskStatus  @default(NORMAL)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  paidAt              DateTime?
+  acceptedAt          DateTime?
+  readyAt             DateTime?
+  pickedUpAt          DateTime?
+  completedAt         DateTime?
+  refundedAt          DateTime?
+  inventoryReservedAt DateTime?
+
+  user              User               @relation(fields: [userId], references: [id])
+  store             Store?             @relation("OrderFulfilledStore", fields: [storeId], references: [id])
+  currentStore      Store?             @relation("OrderCurrentStore", fields: [currentStoreId], references: [id])
+  items             OrderItem[]
+  transferLogs      StoreTransferLog[]
+  actionLogs        OrderActionLog[]
+  paymentRecords    PaymentRecord[]
+  commissionRecords CommissionRecord[]
+  settlementItems   SettlementItem[]
+  riskEvents        RiskEvent[]
+  deliveryTask      DeliveryTask?
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([currentStoreId])
+  @@index([orderStatus])
+  @@index([riderNo])
+  @@index([promoterCode])
+  @@map("orders")
+}
+
+model OrderActionLog {
+  id           String       @id @default(cuid())
+  orderId      String
+  action       String
+  fromStatus   OrderStatus?
+  toStatus     OrderStatus?
+  operatorType String
+  operatorId   String?
+  message      String?
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([action])
+  @@map("order_action_logs")
+}
+
+model PaymentRecord {
+  id             String              @id @default(cuid())
+  orderId        String
+  type           PaymentRecordType
+  channel        String              @default("MOCK")
+  outTradeNo     String              @unique
+  transactionNo  String?
+  amount         Decimal             @db.Decimal(10, 2)
+  status         PaymentRecordStatus @default(PENDING)
+  requestPayload Json?
+  notifyPayload  Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  completedAt    DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([type, status])
+  @@map("payment_records")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  skuId       String
+  productName String
+  skuName     String
+  quantity    Int
+  salePrice   Decimal @db.Decimal(10, 2)
+  settlePrice Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  sku     Sku     @relation(fields: [skuId], references: [id])
+
+  @@index([orderId])
+  @@index([skuId])
+  @@map("order_items")
+}
+
+model Coupon {
+  id        String       @id @default(cuid())
+  userId    String
+  type      String
+  amount    Decimal      @db.Decimal(10, 2)
+  status    CouponStatus @default(UNUSED)
+  expiredAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("coupons")
+}
+
+model PromotionConfig {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  type      String
+  enabled   Boolean   @default(true)
+  config    Json
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("promotion_configs")
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  remark    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model DeliveryTask {
+  id              String             @id @default(cuid())
+  orderId         String             @unique
+  provider        String
+  providerOrderNo String?
+  status          DeliveryTaskStatus @default(PENDING)
+  riderNo         String?
+  riderName       String?
+  riderPhone      String?
+  fee             Decimal            @default(0) @db.Decimal(10, 2)
+  distanceKm      Decimal?           @db.Decimal(10, 2)
+  requestPayload  Json?
+  responsePayload Json?
+  callbackPayload Json?
+  failReason      String?
+  dispatchedAt    DateTime?
+  acceptedAt      DateTime?
+  readyNotifiedAt DateTime?
+  pickedUpAt      DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider])
+  @@index([providerOrderNo])
+  @@index([status])
+  @@map("delivery_tasks")
+}
+
+model AdminUser {
+  id           String        @id @default(cuid())
+  account      String        @unique
+  name         String
+  passwordHash String
+  passwordSalt String
+  role         AdminRole     @default(OPERATIONS)
+  status       AccountStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@map("admin_users")
+}
+
+model StoreTransferLog {
+  id          String    @id @default(cuid())
+  orderId     String
+  fromStoreId String?
+  toStoreId   String?
+  reason      String
+  transferNo  Int
+  deadlineAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  order     Order  @relation(fields: [orderId], references: [id])
+  fromStore Store? @relation("StoreTransferFrom", fields: [fromStoreId], references: [id])
+  toStore   Store? @relation("StoreTransferTo", fields: [toStoreId], references: [id])
+
+  @@index([orderId])
+  @@index([toStoreId])
+  @@map("store_transfer_logs")
+}
+
+model Rider {
+  id                String   @id @default(cuid())
+  riderNo           String   @unique
+  riderName         String?
+  totalPromoteCount Int      @default(0)
+  totalBonus        Decimal  @default(0) @db.Decimal(10, 2)
+  monthBonus        Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("riders")
+}
+
+model Promoter {
+  id              String   @id @default(cuid())
+  promoteCode     String   @unique
+  name            String?
+  totalOrder      Int      @default(0)
+  monthCommission Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("promoters")
+}
+
+model CommissionRecord {
+  id          String           @id @default(cuid())
+  orderId     String
+  type        CommissionType
+  targetId    String
+  amount      Decimal          @db.Decimal(10, 2)
+  status      CommissionStatus @default(PENDING)
+  triggerNode String
+  createdAt   DateTime         @default(now())
+  settledAt   DateTime?
+
+  order           Order            @relation(fields: [orderId], references: [id])
+  settlementItems SettlementItem[]
+
+  @@index([orderId])
+  @@index([type, targetId])
+  @@index([status])
+  @@map("commission_records")
+}
+
+model Settlement {
+  id          String           @id @default(cuid())
+  type        SettlementType
+  targetId    String
+  amount      Decimal          @db.Decimal(10, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  settleTime  DateTime?
+  status      SettlementStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  items SettlementItem[]
+
+  @@index([type, targetId])
+  @@index([status])
+  @@map("settlements")
+}
+
+model SettlementItem {
+  id           String   @id @default(cuid())
+  settlementId String
+  orderId      String?
+  commissionId String?
+  amount       Decimal  @db.Decimal(10, 2)
+  type         String
+  createdAt    DateTime @default(now())
+
+  settlement Settlement        @relation(fields: [settlementId], references: [id])
+  order      Order?            @relation(fields: [orderId], references: [id])
+  commission CommissionRecord? @relation(fields: [commissionId], references: [id])
+
+  @@index([settlementId])
+  @@index([orderId])
+  @@index([commissionId])
+  @@map("settlement_items")
+}
+
+model FinanceStat {
+  id           String   @id @default(cuid())
+  date         DateTime @unique @db.Date
+  totalIncome  Decimal  @default(0) @db.Decimal(10, 2)
+  totalCost    Decimal  @default(0) @db.Decimal(10, 2)
+  totalProfit  Decimal  @default(0) @db.Decimal(10, 2)
+  roleCostJson Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("finance_stats")
+}
+
+model RiskEvent {
+  id         String          @id @default(cuid())
+  targetType RiskTargetType
+  targetId   String
+  userId     String?
+  orderId    String?
+  type       String
+  level      RiskLevel       @default(LOW)
+  reason     String
+  status     RiskEventStatus @default(OPEN)
+  createdAt  DateTime        @default(now())
+  resolvedAt DateTime?
+
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@map("risk_events")
+}
