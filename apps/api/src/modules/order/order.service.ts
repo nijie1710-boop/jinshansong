@@ -65,6 +65,12 @@ type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude 
 type MerchantStore = NonNullable<OrderWithRelations["currentStore"]>;
 
 const DEFAULT_MERCHANT_STORE_CODE = "FZ-TAIJIANG-001";
+const terminalOrderStatuses: OrderStatus[] = [
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED
+];
+const nonRefundableOrderStatuses: OrderStatus[] = [OrderStatus.COMPLETED, OrderStatus.REFUNDED];
 
 function toNumber(value: unknown) {
   return Number(value ?? 0);
@@ -343,6 +349,26 @@ export class OrderService {
   async getOrder(id: string) {
     const order = await this.getOrderEntity(id);
     return this.formatOrder(order);
+  }
+
+  async adminOrderAction(
+    id: string,
+    action: "cancel" | "refund" | "force-complete",
+    context: { adminId: string; reason?: string }
+  ) {
+    const order = await this.getOrderEntity(id);
+
+    if (action === "cancel") {
+      return this.adminCancelOrder(order, context);
+    }
+    if (action === "refund") {
+      return this.adminRefundOrder(order, context);
+    }
+    if (action === "force-complete") {
+      return this.adminForceCompleteOrder(order, context);
+    }
+
+    throw new BadRequestException("未知后台订单操作");
   }
 
   async getUserOrder(id: string, userToken?: string) {
@@ -1375,6 +1401,154 @@ export class OrderService {
     });
 
     return this.formatOrder(refunded);
+  }
+
+  private async adminCancelOrder(
+    order: OrderWithRelations,
+    context: { adminId: string; reason?: string }
+  ) {
+    if (terminalOrderStatuses.includes(order.orderStatus)) {
+      throw new BadRequestException("当前订单状态不可取消");
+    }
+
+    const cancelled = await this.prisma.$transaction(async (tx) => {
+      if (order.inventoryReservedAt && order.currentStoreId) {
+        await this.releaseStoreStock(tx, order.currentStoreId, order.items);
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          orderStatus: OrderStatus.CANCELLED,
+          inventoryReservedAt: null
+        }
+      });
+      await tx.commissionRecord.updateMany({
+        where: { orderId: order.id },
+        data: { status: CommissionStatus.CANCELLED }
+      });
+      await this.logOrderAction(tx, {
+        orderId: order.id,
+        action: "ADMIN_CANCEL",
+        fromStatus: order.orderStatus,
+        toStatus: OrderStatus.CANCELLED,
+        operatorType: "ADMIN",
+        operatorId: context.adminId,
+        message: context.reason?.trim() || "后台人工取消订单"
+      });
+
+      return tx.order.findUniqueOrThrow({ where: { id: order.id }, include: orderInclude });
+    });
+
+    await this.deliveryService.cancelOrder(order.id, context.reason?.trim() || "后台人工取消订单");
+    return this.formatOrder(await this.getOrderEntity(cancelled.id));
+  }
+
+  private async adminRefundOrder(
+    order: OrderWithRelations,
+    context: { adminId: string; reason?: string }
+  ) {
+    if (order.payStatus !== PayStatus.PAID) {
+      throw new BadRequestException("只有已支付订单可以退款");
+    }
+    if (nonRefundableOrderStatuses.includes(order.orderStatus)) {
+      throw new BadRequestException("当前订单状态不可退款");
+    }
+
+    const refunded = await this.prisma.$transaction(async (tx) => {
+      if (order.inventoryReservedAt && order.currentStoreId) {
+        await this.releaseStoreStock(tx, order.currentStoreId, order.items);
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          orderStatus: OrderStatus.REFUNDED,
+          payStatus: PayStatus.REFUNDED,
+          refundedAt: new Date(),
+          inventoryReservedAt: null
+        }
+      });
+      await tx.paymentRecord.create({
+        data: {
+          orderId: order.id,
+          type: PaymentRecordType.REFUND,
+          channel: "MOCK",
+          outTradeNo: `MOCKADMINREFUND-${order.orderNo}-${Date.now()}`,
+          transactionNo: `MOCKADMINRFTX-${order.orderNo}`,
+          amount: order.payableAmount,
+          status: PaymentRecordStatus.SUCCESS,
+          requestPayload: {
+            mode: "mock",
+            source: "admin",
+            reason: context.reason?.trim() || "后台人工模拟退款"
+          },
+          notifyPayload: {
+            refundedAt: new Date().toISOString()
+          },
+          completedAt: new Date()
+        }
+      });
+      await tx.commissionRecord.updateMany({
+        where: { orderId: order.id },
+        data: { status: CommissionStatus.CANCELLED }
+      });
+      await this.logOrderAction(tx, {
+        orderId: order.id,
+        action: "ADMIN_REFUND",
+        fromStatus: order.orderStatus,
+        toStatus: OrderStatus.REFUNDED,
+        operatorType: "ADMIN",
+        operatorId: context.adminId,
+        message: context.reason?.trim() || "后台人工模拟退款"
+      });
+
+      return tx.order.findUniqueOrThrow({ where: { id: order.id }, include: orderInclude });
+    });
+
+    await this.deliveryService.cancelOrder(order.id, context.reason?.trim() || "后台人工模拟退款");
+    return this.formatOrder(await this.getOrderEntity(refunded.id));
+  }
+
+  private async adminForceCompleteOrder(
+    order: OrderWithRelations,
+    context: { adminId: string; reason?: string }
+  ) {
+    if (order.payStatus !== PayStatus.PAID) {
+      throw new BadRequestException("未支付订单不能强制完成");
+    }
+    if (terminalOrderStatuses.includes(order.orderStatus)) {
+      throw new BadRequestException("当前订单状态不可强制完成");
+    }
+
+    const completed = await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          storeId: order.storeId ?? order.currentStoreId,
+          orderStatus: OrderStatus.COMPLETED,
+          pickStatus: PickStatus.PICKED_UP,
+          completedAt: new Date(),
+          acceptedAt: order.acceptedAt ?? new Date(),
+          readyAt: order.readyAt ?? new Date(),
+          pickedUpAt: order.pickedUpAt ?? new Date()
+        }
+      });
+      await this.logOrderAction(tx, {
+        orderId: order.id,
+        action: "ADMIN_FORCE_COMPLETE",
+        fromStatus: order.orderStatus,
+        toStatus: OrderStatus.COMPLETED,
+        operatorType: "ADMIN",
+        operatorId: context.adminId,
+        message: context.reason?.trim() || "后台人工强制完成订单"
+      });
+
+      return tx.order.findUniqueOrThrow({ where: { id: order.id }, include: orderInclude });
+    });
+
+    await this.deliveryService.markCompleted(order.id);
+    return this.formatOrder(await this.getOrderEntity(completed.id));
   }
 
   private async transferTimedOutOrder(order: OrderWithRelations) {

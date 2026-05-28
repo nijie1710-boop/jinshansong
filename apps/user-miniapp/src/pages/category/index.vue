@@ -1,6 +1,17 @@
 <template>
   <view class="page category-page">
-    <view class="search">搜索附近门店现货</view>
+    <view class="search">
+      <text class="search-icon">⌕</text>
+      <input
+        :value="keyword"
+        class="search-input"
+        confirm-type="search"
+        placeholder="搜索附近门店现货"
+        @confirm="searchProducts"
+        @input="setKeyword"
+      />
+      <text v-if="keyword" class="clear-search" @tap="clearKeyword">×</text>
+    </view>
 
     <view class="layout">
       <view class="side">
@@ -21,9 +32,11 @@
           <text class="muted">附近品胜门店 · 30-60分钟送达</text>
         </view>
 
-        <view v-if="products.length === 0" class="empty-card">
-          <text class="section-title">暂无可售商品</text>
-          <text class="muted">等待商家提交商品并通过后台审核</text>
+        <view v-if="filteredProducts.length === 0" class="empty-card">
+          <text class="section-title">{{ keyword ? "没有找到相关商品" : "暂无可售商品" }}</text>
+          <text class="muted">
+            {{ keyword ? "换个关键词试试" : "等待商家提交商品并通过后台审核" }}
+          </text>
         </view>
 
         <view
@@ -71,11 +84,47 @@ import { api, type ApiCategory, type ApiProduct } from "../../services/api";
 const categories = ref<ApiCategory[]>([]);
 const products = ref<ApiProduct[]>([]);
 const activeCategoryId = ref(categories.value[0]?.id ?? "");
+const keyword = ref("");
 
 const filteredProducts = computed(() => {
-  const matched = products.value.filter((product) => product.categoryId === activeCategoryId.value);
-  return matched.length > 0 ? matched : products.value;
+  const categoryMatched = activeCategoryId.value
+    ? products.value.filter((product) => product.categoryId === activeCategoryId.value)
+    : products.value;
+  const baseList = categoryMatched.length > 0 ? categoryMatched : products.value;
+  const normalizedKeyword = keyword.value.trim().toLowerCase();
+
+  if (!normalizedKeyword) {
+    return baseList;
+  }
+
+  return baseList.filter((product) =>
+    [
+      product.name,
+      product.categoryName,
+      product.description,
+      product.nearestStoreName,
+      ...(product.tags ?? []),
+      ...(product.specs ?? [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedKeyword)
+  );
 });
+
+function setKeyword(event: Event) {
+  keyword.value = String((event as Event & { detail?: { value?: string } }).detail?.value ?? "");
+}
+
+function clearKeyword() {
+  keyword.value = "";
+  void loadCategoryData();
+}
+
+function searchProducts() {
+  void loadCategoryData(keyword.value);
+}
 
 function openProduct(id: string) {
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` });
@@ -85,9 +134,12 @@ function buyProduct(skuId: string) {
   uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
 }
 
-async function loadCategoryData() {
+async function loadCategoryData(searchKeyword = "") {
   try {
-    const [categoryData, productData] = await Promise.all([api.categories(), api.products()]);
+    const [categoryData, productData] = await Promise.all([
+      api.categories(),
+      api.products(searchKeyword.trim())
+    ]);
     categories.value = categoryData;
     products.value = productData;
     activeCategoryId.value = categoryData[0]?.id ?? "";
@@ -102,7 +154,7 @@ async function loadCategoryData() {
 onMounted(loadCategoryData);
 
 onPullDownRefresh(() => {
-  void loadCategoryData().finally(() => {
+  void loadCategoryData(keyword.value).finally(() => {
     uni.stopPullDownRefresh();
   });
 });
@@ -116,12 +168,42 @@ onPullDownRefresh(() => {
 }
 
 .search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   border-radius: 999px;
-  padding: 12px 15px;
+  padding: 8px 14px;
   background: #ffffff;
   color: #999999;
   font-size: 13px;
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.05);
+}
+
+.search-icon {
+  color: #ff7a00;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.search-input {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  color: #111111;
+  font-size: 13px;
+}
+
+.clear-search {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f2f3f5;
+  color: #999999;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .layout {

@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { AccountStatus, AdminRole, StoreApplicationStatus, StoreStatus } from "@prisma/client";
+import {
+  AccountStatus,
+  AdminRole,
+  FirstOrderStatus,
+  StoreApplicationStatus,
+  StoreStatus
+} from "@prisma/client";
 import { createSessionToken, verifySessionToken } from "../../infra/auth/session-token";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { UserService } from "../user/user.service";
@@ -75,19 +81,13 @@ export class AuthService {
 
     return {
       token: createSessionToken({ type: "user", sub: user.id }),
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        phone: user.phone,
-        isNewUser: user.isNewUser,
-        firstOrderStatus: user.firstOrderStatus
-      }
+      user: this.formatUser(user)
     };
   }
 
-  async userMe() {
-    const session = await this.userMockLogin();
-    return session.user;
+  async userMe(userToken?: string) {
+    const user = await this.userService.resolveUser(userToken);
+    return this.formatUser(user);
   }
 
   async userWechatLogin(dto: {
@@ -97,15 +97,6 @@ export class AuthService {
     nickname?: string;
   }) {
     const wechat = await this.resolveWechatSession("user", dto.code);
-
-    if (wechat.mode === "mock") {
-      const session = await this.userMockLogin();
-      return {
-        ...session,
-        loginMode: wechat.mode,
-        openId: wechat.openId
-      };
-    }
 
     const phone =
       (await this.resolveWechatPhone("user", dto.phoneCode)) || dto.phone?.trim() || undefined;
@@ -119,13 +110,7 @@ export class AuthService {
       token: createSessionToken({ type: "user", sub: user.id }),
       loginMode: wechat.mode,
       openId: wechat.openId,
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        phone: user.phone,
-        isNewUser: user.isNewUser,
-        firstOrderStatus: user.firstOrderStatus
-      }
+      user: this.formatUser(user)
     };
   }
 
@@ -154,6 +139,15 @@ export class AuthService {
       (await this.resolveWechatPhone("merchant", dto.phoneCode)) || dto.phone?.trim() || undefined;
 
     if (!phone) {
+      const existingLogin = await this.merchantLoginByOpenId(wechat.openId);
+      if (existingLogin) {
+        return {
+          ...existingLogin,
+          loginMode: wechat.mode,
+          openId: wechat.openId
+        };
+      }
+
       return {
         canLogin: false,
         loginMode: wechat.mode,
@@ -163,7 +157,7 @@ export class AuthService {
       };
     }
 
-    const result = await this.merchantLogin({ phone });
+    const result = await this.merchantLogin({ phone, openId: wechat.openId });
 
     return {
       ...result,
@@ -186,6 +180,8 @@ export class AuthService {
     district?: string;
     address?: string;
     businessLicenseNo?: string;
+    businessLicenseImageUrl?: string;
+    storefrontImageUrl?: string;
     categoryNote?: string;
   }) {
     const applicantName = dto.applicantName?.trim();
@@ -214,6 +210,8 @@ export class AuthService {
       district,
       address,
       businessLicenseNo: dto.businessLicenseNo?.trim() || null,
+      businessLicenseImageUrl: dto.businessLicenseImageUrl?.trim() || null,
+      storefrontImageUrl: dto.storefrontImageUrl?.trim() || null,
       categoryNote: dto.categoryNote?.trim() || "数码配件门店",
       reviewRemark: null
     };
@@ -228,7 +226,7 @@ export class AuthService {
     return this.formatApplication(application);
   }
 
-  async merchantLogin(dto: { phone?: string }) {
+  async merchantLogin(dto: { phone?: string; openId?: string }) {
     const phone = dto.phone?.trim();
 
     if (!phone) {
@@ -264,7 +262,8 @@ export class AuthService {
     const account = await this.upsertMerchantAccount({
       phone,
       name: application.applicantName,
-      storeId: application.store.id
+      storeId: application.store.id,
+      openId: dto.openId?.trim() || null
     });
 
     await this.prisma.merchantAccount.update({
@@ -299,6 +298,38 @@ export class AuthService {
     });
 
     return application ? this.formatApplication(application) : null;
+  }
+
+  private async merchantLoginByOpenId(openId: string) {
+    const account = await this.prisma.merchantAccount.findUnique({
+      where: { openId },
+      include: { store: true }
+    });
+
+    if (
+      !account ||
+      account.status !== AccountStatus.ACTIVE ||
+      account.store.status !== StoreStatus.OPEN
+    ) {
+      return null;
+    }
+
+    await this.prisma.merchantAccount.update({
+      where: { id: account.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    return {
+      canLogin: true,
+      token: createSessionToken({
+        type: "merchant",
+        sub: account.id,
+        storeId: account.store.id,
+        storeCode: account.store.code
+      }),
+      store: this.formatStore(account.store),
+      application: await this.merchantApplicationStatus(account.phone)
+    };
   }
 
   async adminLogin(dto: { account?: string; password?: string }) {
@@ -601,6 +632,16 @@ export class AuthService {
   }) {
     const phone = data.phone.trim();
     const existing = await this.prisma.merchantAccount.findUnique({ where: { phone } });
+    const existingByOpenId = data.openId
+      ? await this.prisma.merchantAccount.findUnique({ where: { openId: data.openId } })
+      : null;
+
+    if (existingByOpenId && existingByOpenId.phone !== phone) {
+      await this.prisma.merchantAccount.update({
+        where: { id: existingByOpenId.id },
+        data: { openId: null }
+      });
+    }
 
     if (existing) {
       return this.prisma.merchantAccount.update({
@@ -684,6 +725,22 @@ export class AuthService {
     };
   }
 
+  private formatUser(user: {
+    id: string;
+    nickname: string | null;
+    phone: string | null;
+    isNewUser: boolean;
+    firstOrderStatus: FirstOrderStatus;
+  }) {
+    return {
+      id: user.id,
+      nickname: user.nickname ?? "金闪送用户",
+      phone: user.phone ?? "",
+      isNewUser: user.isNewUser,
+      firstOrderStatus: user.firstOrderStatus
+    };
+  }
+
   private formatApplication(application: {
     id: string;
     applicantName: string;
@@ -693,6 +750,8 @@ export class AuthService {
     district: string;
     address: string;
     businessLicenseNo: string | null;
+    businessLicenseImageUrl?: string | null;
+    storefrontImageUrl?: string | null;
     categoryNote: string | null;
     status: StoreApplicationStatus;
     reviewRemark: string | null;
@@ -710,6 +769,8 @@ export class AuthService {
       district: application.district,
       address: application.address,
       businessLicenseNo: application.businessLicenseNo ?? "",
+      businessLicenseImageUrl: application.businessLicenseImageUrl ?? "",
+      storefrontImageUrl: application.storefrontImageUrl ?? "",
       categoryNote: application.categoryNote ?? "",
       status: application.status,
       statusText:

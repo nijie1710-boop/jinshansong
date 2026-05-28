@@ -126,6 +126,8 @@ export interface StoreApplication {
   district: string;
   address: string;
   businessLicenseNo: string;
+  businessLicenseImageUrl: string;
+  storefrontImageUrl: string;
   categoryNote: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   statusText: string;
@@ -145,6 +147,8 @@ export type StoreApplicationPayload = {
   district: string;
   address: string;
   businessLicenseNo?: string;
+  businessLicenseImageUrl?: string;
+  storefrontImageUrl?: string;
   categoryNote?: string;
 };
 
@@ -211,10 +215,13 @@ export type MerchantProductUpdatePayload = {
 };
 
 export interface UploadResult {
+  id?: string;
   url: string;
   path: string;
   fileName: string;
   size: number;
+  scene?: string;
+  storageDriver?: string;
 }
 
 export interface MerchantSession {
@@ -325,6 +332,44 @@ export function request<T>(
   });
 }
 
+function parseUploadResponse(data: unknown) {
+  if (typeof data === "string") {
+    return JSON.parse(data) as UploadResult;
+  }
+  return data as UploadResult;
+}
+
+function uploadFile<T>(
+  path: string,
+  filePath: string,
+  formData: Record<string, string> = {},
+  withAuth = true
+) {
+  return new Promise<T>((resolve, reject) => {
+    uni.uploadFile({
+      url: `${API_BASE_URL}${path}`,
+      filePath,
+      name: "file",
+      formData,
+      header: withAuth ? authHeaders() : {},
+      success(response) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            resolve(parseUploadResponse(response.data) as T);
+          } catch (error) {
+            reject(error);
+          }
+          return;
+        }
+        reject(new ApiRequestError(response.data || "图片上传失败", response.statusCode));
+      },
+      fail(error) {
+        reject(error);
+      }
+    });
+  });
+}
+
 export const api = {
   mockLogin: (storeCode = DEFAULT_STORE_CODE) =>
     request<MerchantSession>("/auth/merchant/mock-login", { method: "POST", data: { storeCode } }),
@@ -350,6 +395,21 @@ export const api = {
   }) => request<MerchantStore>("/merchant/store/settings", { method: "POST", data }),
   uploadImage: (data: { fileName?: string; dataUrl: string }) =>
     request<UploadResult>("/merchant/uploads/images", { method: "POST", data }),
+  uploadImageFile: (filePath: string, scene = "product") =>
+    uploadFile<UploadResult>("/merchant/uploads/images/file", filePath, { scene }),
+  uploadApplicationImage: (data: {
+    fileName?: string;
+    dataUrl: string;
+    scene?: string;
+    ownerPhone?: string;
+  }) => request<UploadResult>("/auth/merchant/uploads/images", { method: "POST", data }),
+  uploadApplicationImageFile: (filePath: string, scene: string, ownerPhone?: string) =>
+    uploadFile<UploadResult>(
+      "/auth/merchant/uploads/images/file",
+      filePath,
+      { scene, ownerPhone: ownerPhone ?? "" },
+      false
+    ),
   createProduct: (data: MerchantProductPayload) =>
     request<MerchantProduct>("/merchant/products", { method: "POST", data }),
   updateProduct: (storeSkuId: string, data: MerchantProductUpdatePayload) =>

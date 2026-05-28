@@ -12,6 +12,7 @@ export interface AdminOrder {
   store?: string;
   status: string;
   statusCode: string;
+  payStatus?: string;
   payableAmount: number;
   transferCount: number;
   rejectCount: number;
@@ -216,6 +217,8 @@ export interface StoreApplicationEntry {
   district: string;
   address: string;
   businessLicenseNo: string;
+  businessLicenseImageUrl?: string;
+  storefrontImageUrl?: string;
   categoryNote: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   statusText: string;
@@ -336,6 +339,7 @@ function emptyAdminOrder(id: string): AdminOrder {
     storeName: "-",
     status: "未读取",
     statusCode: "UNKNOWN",
+    payStatus: "UNKNOWN",
     payableAmount: 0,
     transferCount: 0,
     rejectCount: 0,
@@ -516,6 +520,14 @@ export function rejectStoreApplication(id: string, remark?: string) {
   return apiPost<StoreApplicationEntry>(`/admin/store-applications/${id}/reject`, { remark });
 }
 
+export function operateAdminOrder(
+  id: string,
+  action: "cancel" | "refund" | "force-complete",
+  reason?: string
+) {
+  return apiPost<AdminOrder>(`/admin/orders/${id}/actions/${action}`, { reason });
+}
+
 export function getSystemConfigs() {
   return apiGet<SystemConfigEntry[]>("/admin/configs", [
     {
@@ -657,4 +669,12 @@ export function getRiskGroups() {
     riders: [],
     promoters: []
   });
+}
+
+export function resolveRiskEvent(id: string) {
+  return apiPost<AdminRiskItem>(`/admin/risk/${id}/resolve`, {});
+}
+
+export function ignoreRiskEvent(id: string) {
+  return apiPost<AdminRiskItem>(`/admin/risk/${id}/ignore`, {});
 }

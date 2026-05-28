@@ -18,15 +18,27 @@
     </view>
 
     <view v-if="hasMerchantAccess" class="stats-grid">
-      <view class="stat-card">
+      <view
+        class="stat-card"
+        :class="{ active: productFilter === 'all' }"
+        @tap="focusProductList('all')"
+      >
         <text class="stat-value">{{ products.length }}</text>
         <text class="muted">门店商品</text>
       </view>
-      <view class="stat-card">
+      <view
+        class="stat-card"
+        :class="{ active: productFilter === 'stock' }"
+        @tap="focusProductList('stock')"
+      >
         <text class="stat-value">{{ totalStock }}</text>
         <text class="muted">现货库存</text>
       </view>
-      <view class="stat-card">
+      <view
+        class="stat-card"
+        :class="{ active: productFilter === 'available' }"
+        @tap="focusProductList('available')"
+      >
         <text class="stat-value">{{ availableCount }}</text>
         <text class="muted">可售商品</text>
       </view>
@@ -197,18 +209,18 @@
       </button>
     </view>
 
-    <view v-if="hasMerchantAccess" class="section-head">
-      <text class="section-title">门店商品</text>
-      <text class="muted">{{ products.length }} 件</text>
+    <view v-if="hasMerchantAccess" id="product-list" class="section-head">
+      <text class="section-title">{{ productListTitle }}</text>
+      <text class="muted">{{ filteredProducts.length }} / {{ products.length }} 件</text>
     </view>
 
-    <view v-if="hasMerchantAccess && products.length === 0" class="empty-card">
+    <view v-if="hasMerchantAccess && filteredProducts.length === 0" class="empty-card">
       <text class="section-title">暂无商品</text>
-      <text class="muted">新增后会写入同一套后端数据库，并同步到用户端商品列表。</text>
+      <text class="muted">{{ productListEmptyText }}</text>
     </view>
 
     <view
-      v-for="product in hasMerchantAccess ? products : []"
+      v-for="product in hasMerchantAccess ? filteredProducts : []"
       :key="product.storeSkuId"
       class="product-card"
     >
@@ -390,6 +402,8 @@ type Draft = {
   settlePrice: string;
 };
 
+type ProductFilter = "all" | "stock" | "available";
+
 const categories = ref<MerchantCategory[]>([]);
 const products = ref<MerchantProduct[]>([]);
 const merchantStore = ref<MerchantStore | null>(getCachedMerchantStore());
@@ -398,6 +412,7 @@ const submitting = ref(false);
 const uploading = ref(false);
 const drafts = ref<Record<string, Draft>>({});
 const editingStoreSkuId = ref("");
+const productFilter = ref<ProductFilter>("all");
 
 const form = reactive({
   name: "",
@@ -422,6 +437,26 @@ const selectedCategoryLabel = computed(
 );
 const totalStock = computed(() => products.value.reduce((sum, product) => sum + product.stock, 0));
 const availableCount = computed(() => products.value.filter((product) => product.available).length);
+const filteredProducts = computed(() => {
+  if (productFilter.value === "stock") {
+    return products.value.filter((product) => product.stock > 0);
+  }
+  if (productFilter.value === "available") {
+    return products.value.filter((product) => product.available);
+  }
+  return products.value;
+});
+const productListTitle = computed(() => {
+  if (productFilter.value === "stock") return "有库存商品";
+  if (productFilter.value === "available") return "可售商品";
+  return "门店商品";
+});
+const productListEmptyText = computed(() => {
+  if (productFilter.value === "stock") return "当前没有现货库存商品，可补货后再查看。";
+  if (productFilter.value === "available")
+    return "当前没有用户端可售商品，请确认库存、上下架和审核状态。";
+  return "新增后会写入同一套后端数据库，并同步到用户端商品列表。";
+});
 const pendingCount = computed(
   () => products.value.filter((product) => product.reviewStatus === "PENDING").length
 );
@@ -462,6 +497,16 @@ function resetDrafts(items: MerchantProduct[]) {
 
 function handleCategoryChange(event: { detail?: { value?: number | string } }) {
   selectedCategoryIndex.value = Number(event.detail?.value ?? 0);
+}
+
+function focusProductList(filter: ProductFilter) {
+  productFilter.value = filter;
+  setTimeout(() => {
+    uni.pageScrollTo({
+      selector: "#product-list",
+      duration: 220
+    });
+  }, 50);
 }
 
 function readImageAsDataUrl(filePath: string) {
@@ -558,6 +603,13 @@ async function uploadImage(filePath: string) {
     throw new ApiRequestError("登录状态已过期，请重新登录商家端", 401);
   }
   const compressedFilePath = await compressImageForUpload(filePath);
+  try {
+    const fileResult = await api.uploadImageFile(compressedFilePath, "products");
+    return fileResult.url;
+  } catch {
+    // H5 blob 地址或部分开发环境可能不支持 uploadFile，兜底走 JSON 上传。
+  }
+
   const dataUrl = await readImageAsDataUrl(compressedFilePath);
   if (dataUrl.length > 9_500_000) {
     throw new Error("图片过大，请裁剪后重新选择");
@@ -973,6 +1025,16 @@ onPullDownRefresh(() => {
 .stat-card {
   padding: 12px 8px;
   text-align: center;
+}
+
+.stat-card:active {
+  transform: scale(0.98);
+  opacity: 0.86;
+}
+
+.stat-card.active {
+  outline: 2px solid rgba(255, 122, 0, 0.28);
+  background: #fffaf4;
 }
 
 .stat-value {

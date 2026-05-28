@@ -48,6 +48,20 @@ export class OrderController {
     return this.orderService.getOrder(id);
   }
 
+  @Post("admin/orders/:id/actions/:action")
+  async adminOrderAction(
+    @Param("id") id: string,
+    @Param("action") action: "cancel" | "refund" | "force-complete",
+    @Body() body: { reason?: string },
+    @Headers("x-admin-token") adminToken?: string
+  ) {
+    const admin = await this.authService.assertAdmin(adminToken);
+    return this.orderService.adminOrderAction(id, action, {
+      adminId: admin.id,
+      reason: body.reason
+    });
+  }
+
   @Get("orders/:id")
   getOrder(@Param("id") id: string, @Headers("x-user-token") userToken?: string) {
     return this.orderService.getUserOrder(id, userToken);

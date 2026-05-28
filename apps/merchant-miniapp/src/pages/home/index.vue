@@ -25,7 +25,12 @@
     </view>
 
     <view v-if="hasMerchantAccess" class="stats-grid">
-      <view v-for="item in stats" :key="item.label" class="stat-card">
+      <view
+        v-for="item in stats"
+        :key="item.label"
+        class="stat-card tappable"
+        @tap="handleStatTap(item)"
+      >
         <text class="stat-value">{{ item.value }}</text>
         <text class="muted">{{ item.label }}</text>
       </view>
@@ -138,6 +143,8 @@ const merchantStats = ref<MerchantStats>({
 });
 let countdownTimer: ReturnType<typeof setInterval> | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let pendingSnapshotReady = false;
+let lastPendingOrderIds = new Set<string>();
 const storeName = computed(() => store.value?.name ?? orders.value[0]?.storeName ?? "待审核门店");
 const hasMerchantAccess = computed(() => Boolean(store.value?.code));
 const acceptingOrders = computed(() => Boolean(store.value?.acceptOrderSwitch));
@@ -167,10 +174,10 @@ const deliveryHint = computed(() => {
   return "请联系平台后台完成配送平台绑定";
 });
 const stats = computed(() => [
-  { label: "待接单", value: String(merchantStats.value.pending) },
-  { label: "今日订单", value: String(merchantStats.value.todayOrders) },
-  { label: "待发货", value: String(merchantStats.value.waitingShipment) },
-  { label: "待结算", value: `¥${merchantStats.value.pendingSettlement}` }
+  { label: "待接单", value: String(merchantStats.value.pending), target: "pending" },
+  { label: "今日订单", value: String(merchantStats.value.todayOrders), target: "orders" },
+  { label: "待发货", value: String(merchantStats.value.waitingShipment), target: "accepted" },
+  { label: "待结算", value: `¥${merchantStats.value.pendingSettlement}`, target: "reconciliation" }
 ]);
 
 function formatCountdown(seconds: number) {
@@ -193,6 +200,27 @@ function goLogin() {
   uni.navigateTo({ url: "/pages/login/index" });
 }
 
+function openOrderTab(tab: "all" | "pending" | "accepted") {
+  uni.setStorageSync("jss_merchant_order_tab", tab);
+  uni.switchTab({ url: "/pages/order/list" });
+}
+
+function handleStatTap(item: { target: string }) {
+  if (item.target === "pending") {
+    uni.navigateTo({ url: "/pages/order/pending" });
+    return;
+  }
+  if (item.target === "accepted") {
+    openOrderTab("accepted");
+    return;
+  }
+  if (item.target === "reconciliation") {
+    uni.switchTab({ url: "/pages/reconciliation/index" });
+    return;
+  }
+  openOrderTab("all");
+}
+
 function syncStore(storeData: MerchantStore) {
   store.value = storeData;
   saveCachedMerchantStore(storeData);
@@ -202,6 +230,8 @@ async function loadMerchantHome() {
   store.value = getCachedMerchantStore();
   if (!hasMerchantAccess.value) {
     orders.value = [];
+    pendingSnapshotReady = false;
+    lastPendingOrderIds = new Set();
     merchantStats.value = {
       pending: 0,
       todayOrders: 0,
@@ -217,6 +247,7 @@ async function loadMerchantHome() {
       api.pendingOrders(),
       api.stats()
     ]);
+    notifyNewPendingOrders(pendingOrders, Boolean(storeData.voiceReminderSwitch));
     syncStore(storeData);
     orders.value = pendingOrders;
     merchantStats.value = statsData;
@@ -224,6 +255,23 @@ async function loadMerchantHome() {
     orders.value = [];
     uni.showToast({ title: "商家数据加载失败", icon: "none" });
   }
+}
+
+function notifyNewPendingOrders(pendingOrders: MerchantOrder[], voiceEnabled: boolean) {
+  const nextIds = new Set(pendingOrders.map((order) => order.id));
+  const newOrders = pendingOrders.filter((order) => !lastPendingOrderIds.has(order.id));
+  lastPendingOrderIds = nextIds;
+
+  if (!pendingSnapshotReady) {
+    pendingSnapshotReady = true;
+    return;
+  }
+  if (newOrders.length === 0 || !voiceEnabled) {
+    return;
+  }
+
+  uni.vibrateShort?.({ type: "medium" });
+  uni.showToast({ title: `叮，新订单 ${newOrders.length} 单`, icon: "none" });
 }
 
 async function toggleAcceptOrders(enabled: boolean) {
@@ -449,6 +497,16 @@ onPullDownRefresh(() => {
 .stat-card {
   padding: 12px 6px;
   text-align: center;
+}
+
+.stat-card.tappable {
+  position: relative;
+}
+
+.stat-card.tappable:active,
+.quick-card:active {
+  transform: scale(0.98);
+  opacity: 0.86;
 }
 
 .stat-value {

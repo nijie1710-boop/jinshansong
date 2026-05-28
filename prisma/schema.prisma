@@ -341,21 +341,23 @@ model MerchantAccount {
 }
 
 model StoreApplication {
-  id                String                 @id @default(cuid())
-  applicantName     String
-  applicantPhone    String
-  storeName         String
-  city              String                 @default("福州市")
-  district          String
-  address           String
-  businessLicenseNo String?
-  categoryNote      String?
-  status            StoreApplicationStatus @default(PENDING)
-  reviewRemark      String?
-  reviewedAt        DateTime?
-  storeId           String?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  id                      String                 @id @default(cuid())
+  applicantName           String
+  applicantPhone          String
+  storeName               String
+  city                    String                 @default("福州市")
+  district                String
+  address                 String
+  businessLicenseNo       String?
+  businessLicenseImageUrl String?
+  storefrontImageUrl      String?
+  categoryNote            String?
+  status                  StoreApplicationStatus @default(PENDING)
+  reviewRemark            String?
+  reviewedAt              DateTime?
+  storeId                 String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
   store Store? @relation(fields: [storeId], references: [id])
 
@@ -363,6 +365,28 @@ model StoreApplication {
   @@index([status])
   @@index([storeId])
   @@map("store_applications")
+}
+
+model UploadAsset {
+  id            String   @id @default(cuid())
+  ownerType     String
+  ownerId       String?
+  scene         String
+  storageDriver String   @default("LOCAL")
+  bucket        String?
+  objectKey     String
+  originalName  String?
+  mimeType      String
+  size          Int
+  url           String
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([scene])
+  @@index([status])
+  @@map("upload_assets")
 }
 
 model StoreSku {

@@ -96,6 +96,18 @@ export class RiskService {
     return groups;
   }
 
+  async updateRiskEventStatus(id: string, status: "RESOLVED" | "IGNORED") {
+    const updated = await this.prisma.riskEvent.update({
+      where: { id },
+      data: {
+        status: status === "RESOLVED" ? RiskEventStatus.RESOLVED : RiskEventStatus.IGNORED,
+        resolvedAt: new Date()
+      }
+    });
+
+    return this.formatEvent(updated);
+  }
+
   private async checkLossThreshold(order: OrderRiskInput) {
     const financeConfig = await this.systemConfig("finance", { lossWarningThreshold: 0 });
     const threshold = numberFromConfig(financeConfig, "lossWarningThreshold", 0);

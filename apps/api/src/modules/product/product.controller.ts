@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Query } from "@nestjs/common";
 import { ProductStatus } from "@prisma/client";
 import { AuthService } from "../auth/auth.service";
 import { ProductService } from "./product.service";
@@ -16,8 +16,8 @@ export class ProductController {
   }
 
   @Get("products")
-  listProducts() {
-    return this.productService.listProducts();
+  listProducts(@Query("keyword") keyword?: string) {
+    return this.productService.listProducts(keyword);
   }
 
   @Get("products/:id")
@@ -85,19 +85,6 @@ export class ProductController {
       storeCode
     );
     return this.productService.createMerchantProduct(resolvedStoreCode, body);
-  }
-
-  @Post("merchant/uploads/images")
-  async uploadMerchantImage(
-    @Headers("x-merchant-token") merchantToken: string | undefined,
-    @Headers("x-store-code") storeCode: string | undefined,
-    @Body() body: { fileName?: string; dataUrl?: string }
-  ) {
-    const resolvedStoreCode = await this.authService.resolveMerchantStoreCode(
-      merchantToken,
-      storeCode
-    );
-    return this.productService.uploadMerchantImage(resolvedStoreCode, body);
   }
 
   @Post("merchant/products/:storeSkuId/update")

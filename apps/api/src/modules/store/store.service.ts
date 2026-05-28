@@ -588,6 +588,8 @@ export class StoreService {
     district: string;
     address: string;
     businessLicenseNo: string | null;
+    businessLicenseImageUrl?: string | null;
+    storefrontImageUrl?: string | null;
     categoryNote: string | null;
     status: StoreApplicationStatus;
     reviewRemark: string | null;
@@ -606,6 +608,8 @@ export class StoreService {
       district: application.district,
       address: application.address,
       businessLicenseNo: application.businessLicenseNo ?? "",
+      businessLicenseImageUrl: application.businessLicenseImageUrl ?? "",
+      storefrontImageUrl: application.storefrontImageUrl ?? "",
       categoryNote: application.categoryNote ?? "",
       status: application.status,
       statusText:

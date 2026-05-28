@@ -88,6 +88,8 @@ async function main() {
   const cableCategory = categories.find((category) => category.name === "充电线");
   const chargerCategory = categories.find((category) => category.name === "充电头");
   const powerBankCategory = categories.find((category) => category.name === "充电宝");
+  const phoneCaseCategory = categories.find((category) => category.name === "手机壳");
+  const screenProtectorCategory = categories.find((category) => category.name === "钢化膜");
 
   const cable = await prisma.product.upsert({
     where: { slug: "pisen-type-c-cable-1m-white" },
@@ -152,6 +154,48 @@ async function main() {
     }
   });
 
+  const phoneCase = await prisma.product.upsert({
+    where: { slug: "pisen-iphone-anti-drop-case" },
+    update: {
+      name: "品胜 iPhone 防摔透明手机壳",
+      categoryId: phoneCaseCategory?.id,
+      reviewStatus: "APPROVED",
+      reviewRemark: "演示商品初始化，默认审核通过"
+    },
+    create: {
+      name: "品胜 iPhone 防摔透明手机壳",
+      slug: "pisen-iphone-anti-drop-case",
+      categoryId: phoneCaseCategory?.id,
+      description: "透明防摔边框，适合福州同城现货闪购演示。",
+      coverUrl: "/assets/products/phone-case.png",
+      reviewStatus: "APPROVED",
+      reviewRemark: "演示商品初始化，默认审核通过",
+      reviewedAt: new Date(),
+      sort: 4
+    }
+  });
+
+  const screenProtector = await prisma.product.upsert({
+    where: { slug: "pisen-hd-tempered-glass" },
+    update: {
+      name: "品胜 高清钢化膜",
+      categoryId: screenProtectorCategory?.id,
+      reviewStatus: "APPROVED",
+      reviewRemark: "演示商品初始化，默认审核通过"
+    },
+    create: {
+      name: "品胜 高清钢化膜",
+      slug: "pisen-hd-tempered-glass",
+      categoryId: screenProtectorCategory?.id,
+      description: "高清防刮钢化膜，适合到店现货和同城配送演示。",
+      coverUrl: "/assets/products/tempered-glass.png",
+      reviewStatus: "APPROVED",
+      reviewRemark: "演示商品初始化，默认审核通过",
+      reviewedAt: new Date(),
+      sort: 5
+    }
+  });
+
   const skus = await Promise.all([
     prisma.sku.upsert({
       where: { code: "SKU-CABLE-TYPEC-1M-WHITE" },
@@ -205,6 +249,42 @@ async function main() {
         salePrice: "99.00",
         defaultSettlePrice: "68.00",
         stock: 120
+      }
+    }),
+    prisma.sku.upsert({
+      where: { code: "SKU-PHONE-CASE-IP15-CLEAR" },
+      update: {
+        productId: phoneCase.id,
+        name: "iPhone 15 透明",
+        salePrice: "29.00",
+        defaultSettlePrice: "13.00",
+        stock: 180
+      },
+      create: {
+        productId: phoneCase.id,
+        code: "SKU-PHONE-CASE-IP15-CLEAR",
+        name: "iPhone 15 透明",
+        salePrice: "29.00",
+        defaultSettlePrice: "13.00",
+        stock: 180
+      }
+    }),
+    prisma.sku.upsert({
+      where: { code: "SKU-TEMPERED-GLASS-IP15" },
+      update: {
+        productId: screenProtector.id,
+        name: "iPhone 15 高清",
+        salePrice: "19.00",
+        defaultSettlePrice: "8.00",
+        stock: 240
+      },
+      create: {
+        productId: screenProtector.id,
+        code: "SKU-TEMPERED-GLASS-IP15",
+        name: "iPhone 15 高清",
+        salePrice: "19.00",
+        defaultSettlePrice: "8.00",
+        stock: 240
       }
     })
   ]);

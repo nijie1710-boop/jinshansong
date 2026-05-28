@@ -12,6 +12,15 @@
       "postcss": true,
       "minified": true
     },
+    "permission": {
+      "scope.userLocation": {
+        "desc": "用于新增收货地址时定位并选择配送地址"
+      }
+    },
+    "requiredPrivateInfos": [
+      "chooseLocation",
+      "getLocation"
+    ],
     "lazyCodeLoading": "requiredComponents",
     "usingComponents": true
   },

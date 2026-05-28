@@ -18,8 +18,8 @@ export class AuthController {
   }
 
   @Get("auth/user/me")
-  userMe() {
-    return this.authService.userMe();
+  userMe(@Headers("x-user-token") userToken?: string) {
+    return this.authService.userMe(userToken);
   }
 
   @Post("auth/merchant/mock-login")
@@ -43,6 +43,8 @@ export class AuthController {
       district?: string;
       address?: string;
       businessLicenseNo?: string;
+      businessLicenseImageUrl?: string;
+      storefrontImageUrl?: string;
       categoryNote?: string;
     }
   ) {

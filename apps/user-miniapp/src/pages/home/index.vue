@@ -1,16 +1,21 @@
 <template>
   <view class="page home-page">
     <view class="topbar">
-      <view class="location">
+      <view class="location" @tap="chooseHomeLocation">
         <view class="brand-mark">
           <image class="brand-logo-image" src="/static/brand/logo-icon.png" mode="aspectFit" />
         </view>
         <view>
-          <text class="city">福州市</text>
-          <text class="local-desc">本地数码闪购</text>
+          <view class="city-row">
+            <text class="location-pin">⌖</text>
+            <text class="city">{{ currentCity }}</text>
+            <text class="location-caret">›</text>
+          </view>
+          <text class="local-desc">{{ locationSubtitle }}</text>
         </view>
       </view>
       <view class="mini-actions">
+        <button class="locate-button" @tap.stop="chooseHomeLocation">定位</button>
         <text>•••</text>
         <text>◎</text>
       </view>
@@ -18,7 +23,15 @@
 
     <view class="search">
       <text class="search-icon">⌕</text>
-      <text>搜索充电线、充电头、手机壳</text>
+      <input
+        :value="searchKeyword"
+        class="search-input"
+        confirm-type="search"
+        placeholder="搜索充电线、充电头、手机壳"
+        @confirm="searchProducts"
+        @input="setSearchKeyword"
+      />
+      <text v-if="searchKeyword" class="clear-search" @tap="clearSearch">×</text>
     </view>
 
     <view class="hero">
@@ -64,17 +77,19 @@
     </view>
 
     <view class="section-head">
-      <text class="section-title">推荐商品</text>
-      <text class="muted">30-60分钟送达</text>
+      <text class="section-title">{{ searchKeyword ? "搜索结果" : "推荐商品" }}</text>
+      <text class="muted">{{ searchKeyword ? `关键词：${searchKeyword}` : "30-60分钟送达" }}</text>
     </view>
 
     <view class="product-grid">
-      <view v-if="products.length === 0" class="empty-card">
-        <text class="section-title">暂无可售商品</text>
-        <text class="muted">商家提交商品并由后台审核通过后会展示在这里</text>
+      <view v-if="displayProducts.length === 0" class="empty-card">
+        <text class="section-title">{{ searchKeyword ? "没有找到相关商品" : "暂无可售商品" }}</text>
+        <text class="muted">
+          {{ searchKeyword ? "换个关键词试试，例如充电线、充电头、手机壳" : "商家提交商品并由后台审核通过后会展示在这里" }}
+        </text>
       </view>
       <view
-        v-for="product in products"
+        v-for="product in displayProducts"
         :key="product.id"
         class="product-card"
         @tap="openProduct(product.id)"
@@ -114,12 +129,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { onPullDownRefresh } from "@dcloudio/uni-app";
 import { api, type ApiCategory, type ApiProduct } from "../../services/api";
 
+const LOCATION_CACHE_KEY = "jss_home_location";
+
 const categories = ref<ApiCategory[]>([]);
 const products = ref<ApiProduct[]>([]);
+const searchKeyword = ref("");
+const currentCity = ref("福州市");
+const currentDistrict = ref("台江区");
+const currentLocationName = ref("本地数码闪购");
 
 const promises = [
   { icon: "盾", title: "正品保障" },
@@ -134,6 +155,140 @@ const activities = [
   { title: "满29减3", subtitle: "高频配件" }
 ];
 
+const displayProducts = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  if (!keyword) {
+    return products.value;
+  }
+
+  return products.value.filter((product) => {
+    const searchable = [
+      product.name,
+      product.categoryName,
+      product.description,
+      product.nearestStoreName,
+      ...(product.tags ?? []),
+      ...(product.specs ?? [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchable.includes(keyword);
+  });
+});
+
+const locationSubtitle = computed(() => {
+  if (currentDistrict.value) {
+    return `${currentDistrict.value} · ${currentLocationName.value}`;
+  }
+  return currentLocationName.value;
+});
+
+function loadCachedLocation() {
+  const cached = uni.getStorageSync(LOCATION_CACHE_KEY);
+  if (!cached || typeof cached !== "object") {
+    return;
+  }
+
+  const location = cached as {
+    city?: string;
+    district?: string;
+    name?: string;
+  };
+  currentCity.value = location.city || "福州市";
+  currentDistrict.value = location.district || "台江区";
+  currentLocationName.value = location.name || "本地数码闪购";
+}
+
+function saveHomeLocation(location: {
+  city: string;
+  district: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  currentCity.value = location.city;
+  currentDistrict.value = location.district;
+  currentLocationName.value = location.name;
+  uni.setStorageSync(LOCATION_CACHE_KEY, location);
+}
+
+function parseFuzhouLocation(result: {
+  name?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const districts = ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"];
+  const addressText = [result.address, result.name].filter(Boolean).join("");
+  const district = districts.find((item) => addressText.includes(item)) || currentDistrict.value;
+  const city = addressText.includes("福州") ? "福州市" : currentCity.value || "福州市";
+  const name = result.name || result.address || "已定位当前位置";
+
+  saveHomeLocation({
+    city,
+    district,
+    name,
+    latitude: result.latitude,
+    longitude: result.longitude
+  });
+}
+
+function chooseHomeLocation() {
+  const fallbackToCurrentLocation = () => {
+    uni.getLocation({
+      type: "gcj02",
+      success(result) {
+        saveHomeLocation({
+          city: currentCity.value || "福州市",
+          district: currentDistrict.value || "台江区",
+          name: "已定位当前位置",
+          latitude: result.latitude,
+          longitude: result.longitude
+        });
+        uni.showToast({ title: "已记录当前位置", icon: "none" });
+      },
+      fail() {
+        uni.showToast({ title: "H5 预览请手动验收，微信内需授权定位", icon: "none" });
+      }
+    });
+  };
+
+  if (typeof uni.chooseLocation !== "function") {
+    fallbackToCurrentLocation();
+    return;
+  }
+
+  uni.chooseLocation({
+    success(result) {
+      parseFuzhouLocation({
+        name: result.name,
+        address: result.address,
+        latitude: result.latitude,
+        longitude: result.longitude
+      });
+      uni.showToast({ title: "已切换定位", icon: "success" });
+    },
+    fail() {
+      fallbackToCurrentLocation();
+    }
+  });
+}
+
+function setSearchKeyword(event: Event) {
+  searchKeyword.value = String((event as Event & { detail?: { value?: string } }).detail?.value ?? "");
+}
+
+function clearSearch() {
+  searchKeyword.value = "";
+  void loadHomeData();
+}
+
+function searchProducts() {
+  void loadHomeData(searchKeyword.value);
+}
+
 function openProduct(id: string) {
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` });
 }
@@ -142,9 +297,12 @@ function buyProduct(skuId: string) {
   uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
 }
 
-async function loadHomeData() {
+async function loadHomeData(keyword = "") {
   try {
-    const [categoryData, productData] = await Promise.all([api.categories(), api.products()]);
+    const [categoryData, productData] = await Promise.all([
+      api.categories(),
+      api.products(keyword.trim())
+    ]);
     categories.value = categoryData;
     products.value = productData;
   } catch {
@@ -154,10 +312,13 @@ async function loadHomeData() {
   }
 }
 
-onMounted(loadHomeData);
+onMounted(() => {
+  loadCachedLocation();
+  void loadHomeData();
+});
 
 onPullDownRefresh(() => {
-  void loadHomeData().finally(() => {
+  void loadHomeData(searchKeyword.value).finally(() => {
     uni.stopPullDownRefresh();
   });
 });
@@ -207,9 +368,29 @@ onPullDownRefresh(() => {
   height: 30px;
 }
 
+.city-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.location-pin,
+.location-caret {
+  color: #ff7a00;
+  font-weight: 900;
+}
+
+.location-pin {
+  font-size: 13px;
+}
+
 .city {
-  display: block;
   font-size: 16px;
+}
+
+.location-caret {
+  transform: rotate(90deg);
+  font-size: 15px;
 }
 
 .local-desc {
@@ -229,12 +410,31 @@ onPullDownRefresh(() => {
   box-shadow: 0 4px 14px rgba(17, 17, 17, 0.06);
 }
 
+.locate-button {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.locate-button::after {
+  border: 0;
+}
+
 .search {
   display: flex;
   align-items: center;
   gap: 7px;
   border-radius: 999px;
-  padding: 12px 16px;
+  padding: 8px 14px;
   background: #ffffff;
   color: #999999;
   font-size: 13px;
@@ -245,6 +445,27 @@ onPullDownRefresh(() => {
   color: #ff7a00;
   font-size: 15px;
   font-weight: 800;
+}
+
+.search-input {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  color: #111111;
+  font-size: 13px;
+}
+
+.clear-search {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f2f3f5;
+  color: #999999;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .hero {

@@ -14,8 +14,14 @@ const context = {
   merchantToken: "",
   adminToken: "",
   originalStoreSettings: null,
-  initialStock: 0
+  initialStock: 0,
+  uploadAssetIds: [],
+  extraOrderIds: [],
+  riskEventIds: []
 };
+
+const tinyPngDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 function step(message) {
   console.log(`✓ ${message}`);
@@ -78,6 +84,48 @@ async function loginAdmin() {
   step("后台管理员数据库账号登录可用");
 }
 
+async function assertWechatLoginBindingWorks() {
+  const userSession = await request("/auth/user/wechat-login", {
+    method: "POST",
+    body: JSON.stringify({
+      code: "smoke-user-code",
+      phone: "13900009999",
+      nickname: "Smoke 微信用户"
+    })
+  });
+  if (!userSession?.token || userSession.user?.phone !== "13900009999") {
+    fail("用户端微信登录没有创建独立用户会话");
+  }
+
+  const userMe = await request("/auth/user/me", {
+    headers: { "x-user-token": userSession.token }
+  });
+  if (userMe.id !== userSession.user.id) {
+    fail("用户端 /me 没有按 token 返回当前微信用户");
+  }
+
+  const merchantSession = await request("/auth/merchant/wechat-login", {
+    method: "POST",
+    body: JSON.stringify({
+      code: "smoke-merchant-code",
+      phone: "0591-88000001"
+    })
+  });
+  if (!merchantSession?.canLogin || !merchantSession.token) {
+    fail("商家端微信登录没有绑定已审核门店账号");
+  }
+
+  const merchantSessionByOpenId = await request("/auth/merchant/wechat-login", {
+    method: "POST",
+    body: JSON.stringify({ code: "smoke-merchant-code" })
+  });
+  if (!merchantSessionByOpenId?.canLogin || !merchantSessionByOpenId.token) {
+    fail("商家端已绑定 openId 后不能免填手机号登录");
+  }
+
+  step("用户端/商家端微信登录绑定逻辑可用");
+}
+
 function merchantHeaders() {
   return {
     "x-merchant-token": context.merchantToken,
@@ -89,6 +137,36 @@ function adminHeaders() {
   return {
     "x-admin-token": context.adminToken
   };
+}
+
+async function assertImageUploadWorks() {
+  const applicationUpload = await request("/auth/merchant/uploads/images", {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: "license.png",
+      dataUrl: tinyPngDataUrl,
+      scene: "business-license",
+      ownerPhone: "13900009998"
+    })
+  });
+  const merchantUpload = await request("/merchant/uploads/images", {
+    method: "POST",
+    headers: merchantHeaders(),
+    body: JSON.stringify({
+      fileName: "product.png",
+      dataUrl: tinyPngDataUrl,
+      scene: "products"
+    })
+  });
+
+  for (const upload of [applicationUpload, merchantUpload]) {
+    if (!upload?.id || !upload.url || !upload.path || upload.size <= 0) {
+      fail("图片上传没有返回完整资产信息");
+    }
+    context.uploadAssetIds.push(upload.id);
+  }
+
+  step("入驻资质和商家商品图片统一上传接口可用");
 }
 
 async function createMerchantProduct() {
@@ -191,6 +269,38 @@ async function approveProductAndAssertVisible() {
     fail("商品审核通过后用户端仍不可见");
   }
   step("后台审核通过后，用户端商品列表可见");
+}
+
+async function assertAdminOrderIntervention() {
+  const addresses = await request("/addresses", {
+    headers: { "x-user-token": context.userToken }
+  });
+  const address = addresses[0];
+  if (!address?.id) {
+    fail("用户没有可用收货地址，无法验证后台订单干预");
+  }
+
+  const order = await request("/orders", {
+    method: "POST",
+    headers: { "x-user-token": context.userToken },
+    body: JSON.stringify({
+      addressId: address.id,
+      items: [{ skuId: context.skuId, quantity: 1 }],
+      riderNo: "0086"
+    })
+  });
+  context.extraOrderIds.push(order.id);
+
+  const cancelled = await request(`/admin/orders/${order.id}/actions/cancel`, {
+    method: "POST",
+    headers: adminHeaders(),
+    body: JSON.stringify({ reason: "smoke 测试后台取消" })
+  });
+  if (cancelled.statusCode !== "CANCELLED") {
+    fail(`后台取消订单后状态应为 CANCELLED，实际为 ${cancelled.statusCode}`);
+  }
+
+  step("后台订单干预操作可用");
 }
 
 async function createAndPayOrder() {
@@ -360,6 +470,29 @@ async function assertOperationalPagesUseRealData() {
   step("商家对账、后台分类和后台结算均读取真实接口数据");
 }
 
+async function assertRiskEventActions() {
+  const event = await prisma.riskEvent.create({
+    data: {
+      targetType: "ORDER",
+      targetId: `SMOKE-RISK-${Date.now()}`,
+      type: "SMOKE_MANUAL_CHECK",
+      level: "LOW",
+      reason: "smoke 测试风控处理"
+    }
+  });
+  context.riskEventIds.push(event.id);
+
+  const resolved = await request(`/admin/risk/${event.id}/resolve`, {
+    method: "POST",
+    headers: adminHeaders()
+  });
+  if (resolved.status !== "RESOLVED") {
+    fail("风控事件没有被标记为已处理");
+  }
+
+  step("风控事件处理动作可用");
+}
+
 async function cleanup() {
   if (context.originalStoreSettings) {
     await request("/merchant/store/settings", {
@@ -393,6 +526,20 @@ async function cleanup() {
     await prisma.order.deleteMany({ where: { id: context.orderId } });
   }
 
+  if (context.extraOrderIds.length > 0) {
+    await prisma.storeTransferLog.deleteMany({ where: { orderId: { in: context.extraOrderIds } } });
+    await prisma.orderItem.deleteMany({ where: { orderId: { in: context.extraOrderIds } } });
+    await prisma.order.deleteMany({ where: { id: { in: context.extraOrderIds } } });
+  }
+
+  if (context.riskEventIds.length > 0) {
+    await prisma.riskEvent.deleteMany({ where: { id: { in: context.riskEventIds } } });
+  }
+
+  if (context.uploadAssetIds.length > 0) {
+    await prisma.uploadAsset.deleteMany({ where: { id: { in: context.uploadAssetIds } } });
+  }
+
   if (context.skuId) {
     await prisma.storeSku.deleteMany({ where: { skuId: context.skuId } });
     await prisma.sku.deleteMany({ where: { id: context.skuId } });
@@ -407,16 +554,20 @@ async function main() {
   await loginUser();
   await loginMerchant();
   await loginAdmin();
+  await assertWechatLoginBindingWorks();
+  await assertImageUploadWorks();
   await assertMerchantSettingsCanPersist();
   await createMerchantProduct();
   await assertPendingProductHiddenFromUser();
   await approveProductAndAssertVisible();
+  await assertAdminOrderIntervention();
   await createAndPayOrder();
   await assertPaymentReservedStock();
   await assertMerchantSeesPendingOrder();
   await completeMerchantOrder();
   await assertAdminAndUserRecords();
   await assertOperationalPagesUseRealData();
+  await assertRiskEventActions();
   console.log("数据互通闭环验证通过。");
 }
 

@@ -12,6 +12,15 @@
       "postcss": true,
       "minified": true
     },
+    "permission": {
+      "scope.userLocation": {
+        "desc": "用于商家入驻时选择门店地址和定位门店位置"
+      }
+    },
+    "requiredPrivateInfos": [
+      "chooseLocation",
+      "getLocation"
+    ],
     "lazyCodeLoading": "requiredComponents",
     "usingComponents": true
   },

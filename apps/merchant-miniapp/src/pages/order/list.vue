@@ -1,26 +1,30 @@
 <template>
   <view class="page order-page">
     <view class="tabs">
-      <button class="tab" :class="{ active: activeTab === 'pending' }" @tap="activeTab = 'pending'">
+      <button class="tab" :class="{ active: activeTab === 'all' }" @tap="selectTab('all')">
+        <text>全部</text>
+        <text class="tab-count">{{ countByTab("all") }}</text>
+      </button>
+      <button class="tab" :class="{ active: activeTab === 'pending' }" @tap="selectTab('pending')">
         <text>待接单</text>
         <text class="tab-count">{{ countByTab("pending") }}</text>
       </button>
       <button
         class="tab"
         :class="{ active: activeTab === 'accepted' }"
-        @tap="activeTab = 'accepted'"
+        @tap="selectTab('accepted')"
       >
         <text>已接单</text>
         <text class="tab-count">{{ countByTab("accepted") }}</text>
       </button>
-      <button class="tab" :class="{ active: activeTab === 'pickup' }" @tap="activeTab = 'pickup'">
+      <button class="tab" :class="{ active: activeTab === 'pickup' }" @tap="selectTab('pickup')">
         <text>待取货</text>
         <text class="tab-count">{{ countByTab("pickup") }}</text>
       </button>
       <button
         class="tab"
         :class="{ active: activeTab === 'completed' }"
-        @tap="activeTab = 'completed'"
+        @tap="selectTab('completed')"
       >
         <text>已完成</text>
         <text class="tab-count">{{ countByTab("completed") }}</text>
@@ -28,7 +32,7 @@
       <button
         class="tab"
         :class="{ active: activeTab === 'cancelled' }"
-        @tap="activeTab = 'cancelled'"
+        @tap="selectTab('cancelled')"
       >
         <text>已取消</text>
         <text class="tab-count">{{ countByTab("cancelled") }}</text>
@@ -65,12 +69,20 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
+import { onLoad, onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api, type MerchantOrder } from "../../services/api";
 
-type TabKey = "pending" | "accepted" | "pickup" | "completed" | "cancelled";
+type TabKey = "all" | "pending" | "accepted" | "pickup" | "completed" | "cancelled";
+
+const ORDER_TAB_STORAGE_KEY = "jss_merchant_order_tab";
 
 const tabs: { key: TabKey; label: string; statuses: string[]; emptyText: string }[] = [
+  {
+    key: "all",
+    label: "全部",
+    statuses: [],
+    emptyText: "还没有订单，用户完成支付后会出现在这里"
+  },
   {
     key: "pending",
     label: "待接单",
@@ -108,14 +120,35 @@ const orders = ref<MerchantOrder[]>([]);
 
 const currentTab = computed(() => tabs.find((tab) => tab.key === activeTab.value) ?? tabs[0]);
 const filteredOrders = computed(() =>
-  orders.value.filter((order) => currentTab.value.statuses.includes(order.statusCode))
+  currentTab.value.key === "all"
+    ? orders.value
+    : orders.value.filter((order) => currentTab.value.statuses.includes(order.statusCode))
 );
 const emptyText = computed(() => currentTab.value.emptyText);
 
 function countByTab(key: TabKey) {
+  if (key === "all") return orders.value.length;
   const tab = tabs.find((item) => item.key === key);
   if (!tab) return 0;
   return orders.value.filter((order) => tab.statuses.includes(order.statusCode)).length;
+}
+
+function setActiveTab(value?: string) {
+  if (tabs.some((tab) => tab.key === value)) {
+    activeTab.value = value as TabKey;
+  }
+}
+
+function selectTab(tab: TabKey) {
+  activeTab.value = tab;
+}
+
+function applyStoredTab() {
+  const stored = uni.getStorageSync(ORDER_TAB_STORAGE_KEY);
+  if (typeof stored === "string") {
+    setActiveTab(stored);
+    uni.removeStorageSync(ORDER_TAB_STORAGE_KEY);
+  }
 }
 
 async function loadOrders() {
@@ -127,8 +160,15 @@ async function loadOrders() {
   }
 }
 
+onLoad((query) => {
+  setActiveTab(String(query?.tab ?? ""));
+});
+
 onMounted(loadOrders);
-onShow(loadOrders);
+onShow(() => {
+  applyStoredTab();
+  void loadOrders();
+});
 
 onPullDownRefresh(() => {
   void loadOrders().finally(() => {

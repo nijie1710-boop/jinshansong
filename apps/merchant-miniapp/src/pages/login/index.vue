@@ -24,7 +24,7 @@
       </view>
 
       <view class="field">
-        <text class="field-label">入驻手机号</text>
+        <text class="field-label">入驻手机号<text class="required-star">*</text></text>
         <input
           v-model="loginPhone"
           adjust-position
@@ -73,7 +73,7 @@
 
       <view class="field-grid">
         <view class="field">
-          <text class="field-label">联系人</text>
+          <text class="field-label">联系人<text class="required-star">*</text></text>
           <input
             v-model="applyForm.applicantName"
             adjust-position
@@ -85,7 +85,7 @@
           />
         </view>
         <view class="field">
-          <text class="field-label">手机号</text>
+          <text class="field-label">手机号<text class="required-star">*</text></text>
           <input
             v-model="applyForm.applicantPhone"
             adjust-position
@@ -100,7 +100,7 @@
       </view>
 
       <view class="field">
-        <text class="field-label">门店名称</text>
+        <text class="field-label">门店名称<text class="required-star">*</text></text>
         <input
           v-model="applyForm.storeName"
           adjust-position
@@ -114,7 +114,7 @@
 
       <view class="field-grid">
         <view class="field">
-          <text class="field-label">城市</text>
+          <text class="field-label">城市<text class="required-star">*</text></text>
           <input
             v-model="applyForm.city"
             adjust-position
@@ -126,7 +126,7 @@
           />
         </view>
         <view class="field">
-          <text class="field-label">区域</text>
+          <text class="field-label">区域<text class="required-star">*</text></text>
           <input
             v-model="applyForm.district"
             adjust-position
@@ -140,7 +140,10 @@
       </view>
 
       <view class="field">
-        <text class="field-label">详细地址</text>
+        <view class="field-label-row">
+          <text class="field-label">详细地址<text class="required-star">*</text></text>
+          <text class="location-link" @tap="chooseStoreLocation">定位选址</text>
+        </view>
         <input
           v-model="applyForm.address"
           adjust-position
@@ -165,8 +168,41 @@
         />
       </view>
 
+      <view class="field-grid">
+        <view class="field">
+          <text class="field-label">营业执照照片</text>
+          <view class="apply-upload" @tap="chooseApplicationImage('businessLicenseImageUrl')">
+            <image
+              v-if="applyForm.businessLicenseImageUrl"
+              class="apply-upload-image"
+              :src="applyForm.businessLicenseImageUrl"
+              mode="aspectFill"
+            />
+            <view v-else class="apply-upload-inner">
+              <text>+</text>
+              <text>{{ uploading ? "上传中" : "上传执照" }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="field">
+          <text class="field-label">门店门头照</text>
+          <view class="apply-upload" @tap="chooseApplicationImage('storefrontImageUrl')">
+            <image
+              v-if="applyForm.storefrontImageUrl"
+              class="apply-upload-image"
+              :src="applyForm.storefrontImageUrl"
+              mode="aspectFill"
+            />
+            <view v-else class="apply-upload-inner">
+              <text>+</text>
+              <text>{{ uploading ? "上传中" : "上传门头" }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <view class="field">
-        <text class="field-label">经营品类</text>
+        <text class="field-label">经营品类<text class="required-star">*</text></text>
         <textarea
           v-model="applyForm.categoryNote"
           adjust-position
@@ -190,7 +226,7 @@
       </view>
 
       <view class="field">
-        <text class="field-label">申请手机号</text>
+        <text class="field-label">申请手机号<text class="required-star">*</text></text>
         <input
           v-model="loginPhone"
           adjust-position
@@ -242,6 +278,7 @@ import {
 
 const mode = ref<"apply" | "login">("apply");
 const loading = ref(false);
+const uploading = ref(false);
 const loginPhone = ref("059188000001");
 const application = ref<StoreApplication | null>(null);
 const applyForm = reactive({
@@ -252,8 +289,12 @@ const applyForm = reactive({
   district: "",
   address: "",
   businessLicenseNo: "",
+  businessLicenseImageUrl: "",
+  storefrontImageUrl: "",
   categoryNote: "数码配件、充电线、充电器、手机壳、钢化膜"
 });
+
+type ApplicationImageField = "businessLicenseImageUrl" | "storefrontImageUrl";
 
 type PhoneNumberEvent = {
   detail?: {
@@ -286,9 +327,241 @@ function validateApplyForm() {
     applyForm.applicantName.trim() &&
     applyForm.applicantPhone.trim() &&
     applyForm.storeName.trim() &&
+    applyForm.city.trim() &&
     applyForm.district.trim() &&
-    applyForm.address.trim()
+    applyForm.address.trim() &&
+    applyForm.categoryNote.trim()
   );
+}
+
+function inferDistrict(address: string) {
+  const knownDistricts = [
+    "鼓楼区",
+    "台江区",
+    "仓山区",
+    "晋安区",
+    "马尾区",
+    "长乐区",
+    "闽侯县",
+    "连江县",
+    "罗源县",
+    "闽清县",
+    "永泰县",
+    "平潭县",
+    "福清市"
+  ];
+  return knownDistricts.find((district) => address.includes(district)) ?? "";
+}
+
+function chooseStoreLocation() {
+  const fallbackToCurrentLocation = () => {
+    const getLocation = (
+      uni as unknown as {
+        getLocation?: (options: { type: "gcj02"; success: () => void; fail: () => void }) => void;
+      }
+    ).getLocation;
+
+    if (!getLocation) {
+      uni.showToast({ title: "当前环境不支持定位选址", icon: "none" });
+      return;
+    }
+
+    getLocation({
+      type: "gcj02",
+      success() {
+        applyForm.city = applyForm.city.trim() || "福州市";
+        applyForm.district = applyForm.district.trim() || "台江区";
+        uni.showToast({ title: "已定位，请补充门牌号", icon: "none" });
+      },
+      fail() {
+        uni.showToast({ title: "定位失败，请手动填写", icon: "none" });
+      }
+    });
+  };
+
+  const chooseLocation = (
+    uni as unknown as {
+      chooseLocation?: (options: {
+        success: (result: { name?: string; address?: string }) => void;
+        fail: (error: { errMsg?: string }) => void;
+      }) => void;
+    }
+  ).chooseLocation;
+
+  if (!chooseLocation) {
+    fallbackToCurrentLocation();
+    return;
+  }
+
+  chooseLocation({
+    success(result) {
+      const address = result.address || result.name || "";
+      const locationName = result.name && !address.includes(result.name) ? result.name : "";
+      const fullAddress = [address, locationName].filter(Boolean).join(" ");
+      if (fullAddress) {
+        applyForm.address = fullAddress;
+      }
+      if (fullAddress.includes("福州")) {
+        applyForm.city = "福州市";
+      }
+      const district = inferDistrict(fullAddress);
+      if (district) {
+        applyForm.district = district;
+      }
+      uni.showToast({ title: "地址已填入", icon: "success" });
+    },
+    fail(error) {
+      const cancelled = error.errMsg?.includes("cancel");
+      if (!cancelled) {
+        fallbackToCurrentLocation();
+      }
+    }
+  });
+}
+
+function readImageAsDataUrl(filePath: string) {
+  return new Promise<string>((resolve, reject) => {
+    if (filePath.startsWith("data:")) {
+      resolve(filePath);
+      return;
+    }
+
+    // #ifdef H5
+    fetch(filePath)
+      .then((response) => response.blob())
+      .then((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      })
+      .catch(reject);
+    // #endif
+
+    // #ifndef H5
+    const fileSystem = (
+      uni as unknown as {
+        getFileSystemManager?: () => {
+          readFile: (options: {
+            filePath: string;
+            encoding: "base64";
+            success: (result: { data: string }) => void;
+            fail: (error: unknown) => void;
+          }) => void;
+        };
+      }
+    ).getFileSystemManager?.();
+    if (!fileSystem) {
+      reject(new Error("当前环境不支持读取图片"));
+      return;
+    }
+    fileSystem.readFile({
+      filePath,
+      encoding: "base64",
+      success(result) {
+        resolve(`data:image/jpeg;base64,${result.data}`);
+      },
+      fail: reject
+    });
+    // #endif
+  });
+}
+
+function compressImageForUpload(filePath: string) {
+  return new Promise<string>((resolve) => {
+    // #ifdef MP-WEIXIN
+    const compressImage = (
+      uni as unknown as {
+        compressImage?: (options: {
+          src: string;
+          quality: number;
+          compressedWidth?: number;
+          compressedHeight?: number;
+          success: (result: { tempFilePath?: string }) => void;
+          fail: () => void;
+        }) => void;
+      }
+    ).compressImage;
+
+    if (!compressImage || filePath.startsWith("data:")) {
+      resolve(filePath);
+      return;
+    }
+
+    compressImage({
+      src: filePath,
+      quality: 55,
+      compressedWidth: 1280,
+      compressedHeight: 1280,
+      success(result) {
+        resolve(result.tempFilePath || filePath);
+      },
+      fail() {
+        resolve(filePath);
+      }
+    });
+    // #endif
+
+    // #ifndef MP-WEIXIN
+    resolve(filePath);
+    // #endif
+  });
+}
+
+async function uploadApplicationImage(filePath: string, field: ApplicationImageField) {
+  const scene = field === "businessLicenseImageUrl" ? "business-license" : "storefront";
+  const compressedFilePath = await compressImageForUpload(filePath);
+
+  try {
+    const result = await api.uploadApplicationImageFile(
+      compressedFilePath,
+      scene,
+      applyForm.applicantPhone.trim() || loginPhone.value.trim()
+    );
+    return result.url;
+  } catch {
+    // 部分 H5 预览环境不支持 uploadFile 时，退回 base64 上传。
+  }
+
+  const dataUrl = await readImageAsDataUrl(compressedFilePath);
+  if (dataUrl.length > 9_500_000) {
+    throw new Error("图片过大，请裁剪后重新选择");
+  }
+  const result = await api.uploadApplicationImage({
+    fileName: compressedFilePath.split("/").pop() || filePath.split("/").pop(),
+    dataUrl,
+    scene,
+    ownerPhone: applyForm.applicantPhone.trim() || loginPhone.value.trim()
+  });
+  return result.url;
+}
+
+function chooseApplicationImage(field: ApplicationImageField) {
+  if (uploading.value) return;
+  uni.chooseImage({
+    count: 1,
+    sourceType: ["album", "camera"],
+    sizeType: ["compressed"],
+    success(result) {
+      const filePath = result.tempFilePaths[0];
+      if (!filePath) return;
+      uploading.value = true;
+      void uploadApplicationImage(filePath, field)
+        .then((url) => {
+          applyForm[field] = url;
+          uni.showToast({ title: "图片已上传", icon: "success" });
+        })
+        .catch((error) => {
+          uni.showToast({
+            title: error instanceof Error ? error.message : "图片上传失败",
+            icon: "none"
+          });
+        })
+        .finally(() => {
+          uploading.value = false;
+        });
+    }
+  });
 }
 
 async function submitApplication() {
@@ -308,6 +581,8 @@ async function submitApplication() {
       district: applyForm.district.trim(),
       address: applyForm.address.trim(),
       businessLicenseNo: applyForm.businessLicenseNo.trim(),
+      businessLicenseImageUrl: applyForm.businessLicenseImageUrl,
+      storefrontImageUrl: applyForm.storefrontImageUrl,
       categoryNote: applyForm.categoryNote.trim()
     });
     loginPhone.value = applyForm.applicantPhone.trim();
@@ -582,6 +857,29 @@ async function handleDemoLogin() {
   font-size: 12px;
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.required-star {
+  margin-left: 2px;
+  color: #ff4d4f;
+  font-weight: 900;
+}
+
+.location-link {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .field-input,
 .field-textarea {
   box-sizing: border-box;
@@ -601,6 +899,35 @@ async function handleDemoLogin() {
   min-height: 78px;
   padding: 10px 12px;
   line-height: 1.45;
+}
+
+.apply-upload {
+  overflow: hidden;
+  height: 92px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.2)), #fffaf4;
+}
+
+.apply-upload-image,
+.apply-upload-inner {
+  width: 100%;
+  height: 100%;
+}
+
+.apply-upload-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.apply-upload-inner text:first-child {
+  font-size: 24px;
+  line-height: 1;
 }
 
 .status-card {

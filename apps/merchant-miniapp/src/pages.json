@@ -61,22 +61,32 @@
     "list": [
       {
         "pagePath": "pages/home/index",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png",
         "text": "首页"
       },
       {
         "pagePath": "pages/order/list",
+        "iconPath": "static/tabbar/order.png",
+        "selectedIconPath": "static/tabbar/order-active.png",
         "text": "订单"
       },
       {
         "pagePath": "pages/reconciliation/index",
+        "iconPath": "static/tabbar/reconciliation.png",
+        "selectedIconPath": "static/tabbar/reconciliation-active.png",
         "text": "对账"
       },
       {
         "pagePath": "pages/product/manage",
+        "iconPath": "static/tabbar/product.png",
+        "selectedIconPath": "static/tabbar/product-active.png",
         "text": "商品"
       },
       {
         "pagePath": "pages/settings/index",
+        "iconPath": "static/tabbar/settings.png",
+        "selectedIconPath": "static/tabbar/settings-active.png",
         "text": "设置"
       }
     ]

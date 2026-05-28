@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatCurrency, PageShell, Panel, StatusPill } from "../../admin-ui";
 import { getAdminOrder } from "../../lib/api";
-import { retryDeliveryAction } from "./actions";
+import { adminOrderAction, retryDeliveryAction } from "./actions";
 
 const statusSteps = [
   { key: "paidAt", label: "模拟支付" },
@@ -178,6 +178,37 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         )}
       </Panel>
 
+      <Panel title="后台订单干预">
+        <div className="grid gap-3 text-sm lg:grid-cols-3">
+          <AdminActionForm
+            action="cancel"
+            disabled={["COMPLETED", "CANCELLED", "REFUNDED"].includes(order.statusCode)}
+            orderId={order.id}
+            placeholder="取消原因"
+            title="取消订单"
+          />
+          <AdminActionForm
+            action="refund"
+            disabled={
+              order.payStatus !== "PAID" || ["COMPLETED", "REFUNDED"].includes(order.statusCode)
+            }
+            orderId={order.id}
+            placeholder="退款原因"
+            title="模拟退款"
+          />
+          <AdminActionForm
+            action="force-complete"
+            disabled={
+              order.payStatus !== "PAID" ||
+              ["COMPLETED", "CANCELLED", "REFUNDED"].includes(order.statusCode)
+            }
+            orderId={order.id}
+            placeholder="强制完成备注"
+            title="强制完成"
+          />
+        </div>
+      </Panel>
+
       <Panel title="操作日志">
         {order.logs?.length ? (
           <div className="space-y-3">
@@ -330,6 +361,46 @@ function MoneyLine({
   );
 }
 
+function AdminActionForm({
+  orderId,
+  action,
+  title,
+  placeholder,
+  disabled
+}: {
+  orderId: string;
+  action: "cancel" | "refund" | "force-complete";
+  title: string;
+  placeholder: string;
+  disabled: boolean;
+}) {
+  return (
+    <form action={adminOrderAction} className="rounded-xl bg-[#F7F8FA] p-4">
+      <input name="orderId" type="hidden" value={orderId} />
+      <input name="action" type="hidden" value={action} />
+      <div className="font-semibold">{title}</div>
+      <input
+        className="mt-3 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
+        disabled={disabled}
+        name="reason"
+        placeholder={placeholder}
+      />
+      <button
+        className={`mt-3 w-full rounded-lg px-4 py-2 text-sm font-semibold ${
+          disabled
+            ? "bg-gray-200 text-gray-400"
+            : action === "refund"
+              ? "bg-red-600 text-white"
+              : "bg-[#FF7A00] text-white"
+        }`}
+        disabled={disabled}
+      >
+        执行
+      </button>
+    </form>
+  );
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
@@ -352,7 +423,10 @@ function actionLabel(action: string) {
     STORE_REJECT_REFUND: "拒单退款",
     STORE_REJECT_NO_STORE_REFUND: "拒单无门店退款",
     STORE_TIMEOUT_TRANSFER: "超时转单",
-    STORE_TIMEOUT_NO_STORE_REFUND: "超时无门店退款"
+    STORE_TIMEOUT_NO_STORE_REFUND: "超时无门店退款",
+    ADMIN_CANCEL: "后台取消",
+    ADMIN_REFUND: "后台退款",
+    ADMIN_FORCE_COMPLETE: "后台强制完成"
   };
   return labels[action] ?? action;
 }

@@ -16,6 +16,7 @@ import { PromotionModule } from "./modules/promotion/promotion.module";
 import { RiskModule } from "./modules/risk/risk.module";
 import { SettlementModule } from "./modules/settlement/settlement.module";
 import { StoreModule } from "./modules/store/store.module";
+import { UploadModule } from "./modules/upload/upload.module";
 import { UserModule } from "./modules/user/user.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
 import { RedisModule } from "./infra/redis/redis.module";
@@ -39,6 +40,7 @@ import { RedisModule } from "./infra/redis/redis.module";
     OrderModule,
     PaymentModule,
     PromotionModule,
+    UploadModule,
     CommissionModule,
     SettlementModule,
     FinanceModule,

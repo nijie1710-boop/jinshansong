@@ -116,8 +116,23 @@ export interface ApiOrder {
   storePhone: string;
   storeAddress: string;
   riderNo: string;
+  deliveryTask?: {
+    provider?: string;
+    providerName?: string;
+    status?: string;
+    statusText?: string;
+    riderNo?: string | null;
+    riderName?: string | null;
+    riderPhone?: string | null;
+  } | null;
   receiver: string;
   address: string;
+  paidAt?: string | null;
+  acceptedAt?: string | null;
+  readyAt?: string | null;
+  pickedUpAt?: string | null;
+  completedAt?: string | null;
+  refundedAt?: string | null;
   inventoryReservedAt?: string | null;
   logs?: {
     id: string;
@@ -211,7 +226,10 @@ export const api = {
   coupons: () => request<ApiCoupon[]>("/coupons"),
   claimReferralCoupon: () => request<ApiCoupon>("/coupons/referral/mock-claim", { method: "POST" }),
   categories: () => request<ApiCategory[]>("/categories"),
-  products: () => request<ApiProduct[]>("/products"),
+  products: (keyword = "") =>
+    request<ApiProduct[]>(
+      keyword.trim() ? `/products?keyword=${encodeURIComponent(keyword.trim())}` : "/products"
+    ),
   product: (id: string) => request<ApiProduct>(`/products/${id}`),
   addresses: () => request<ApiAddress[]>("/addresses"),
   address: (id: string) => request<ApiAddress>(`/addresses/${id}`),

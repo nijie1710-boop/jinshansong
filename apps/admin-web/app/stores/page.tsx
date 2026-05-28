@@ -75,6 +75,13 @@ export default async function StoresPage() {
                       经营品类：{application.categoryNote || "未填写"} · 执照号：
                       {application.businessLicenseNo || "未填写"}
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <ApplicationImage
+                        label="营业执照照片"
+                        src={application.businessLicenseImageUrl}
+                      />
+                      <ApplicationImage label="门店门头照" src={application.storefrontImageUrl} />
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <StatusPill tone={application.storeCode ? "green" : "gray"}>
                         {application.storeCode ? `门店编码 ${application.storeCode}` : "未生成门店"}
@@ -310,6 +317,21 @@ function deliveryReadinessTone(status?: string) {
   if (status === "MOCK_READY") return "orange";
   if (status === "HTTP_INCOMPLETE") return "red";
   return "gray";
+}
+
+function ApplicationImage({ label, src }: { label: string; src?: string }) {
+  return (
+    <div className="overflow-hidden rounded-xl bg-white ring-1 ring-black/5">
+      {src ? (
+        <img className="h-20 w-28 object-cover" src={src} alt={label} />
+      ) : (
+        <div className="flex h-20 w-28 items-center justify-center text-xs text-[#999999]">
+          未上传
+        </div>
+      )}
+      <div className="px-2 py-1 text-xs text-[#666666]">{label}</div>
+    </div>
+  );
 }
 
 function formatDate(value?: string | null) {

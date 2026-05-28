@@ -1,7 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { Prisma, ProductReviewStatus, ProductStatus, StoreStatus } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 
@@ -121,11 +118,33 @@ export class ProductService {
     }));
   }
 
-  async listProducts() {
+  async listProducts(keyword?: string) {
+    const normalizedKeyword = keyword?.trim();
     const products = await this.prisma.product.findMany({
       where: {
         status: ProductStatus.ON_SALE,
-        reviewStatus: ProductReviewStatus.APPROVED
+        reviewStatus: ProductReviewStatus.APPROVED,
+        ...(normalizedKeyword
+          ? {
+              OR: [
+                { name: { contains: normalizedKeyword, mode: Prisma.QueryMode.insensitive } },
+                {
+                  description: {
+                    contains: normalizedKeyword,
+                    mode: Prisma.QueryMode.insensitive
+                  }
+                },
+                {
+                  category: {
+                    name: {
+                      contains: normalizedKeyword,
+                      mode: Prisma.QueryMode.insensitive
+                    }
+                  }
+                }
+              ]
+            }
+          : {})
       },
       include: {
         category: true,
@@ -541,42 +560,6 @@ export class ProductService {
     });
 
     return this.listAdminProducts();
-  }
-
-  async uploadMerchantImage(
-    storeCode: string | undefined,
-    dto: { fileName?: string; dataUrl?: string }
-  ) {
-    await this.resolveMerchantStore(storeCode);
-
-    const dataUrl = dto.dataUrl?.trim() ?? "";
-    const matched = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,([a-zA-Z0-9+/=]+)$/);
-    if (!matched) {
-      throw new BadRequestException("图片格式不正确，请上传 PNG、JPG 或 WebP 图片");
-    }
-
-    const extension = matched[1] === "jpeg" ? "jpg" : matched[1];
-    const buffer = Buffer.from(matched[2], "base64");
-    const maxSize = 5 * 1024 * 1024;
-    if (buffer.length <= 0 || buffer.length > maxSize) {
-      throw new BadRequestException("图片大小需小于 5MB");
-    }
-
-    const uploadDir = join(process.cwd(), "uploads", "products");
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const fileName = `${Date.now()}-${randomUUID()}.${extension}`;
-    writeFileSync(join(uploadDir, fileName), buffer);
-
-    const url = `/uploads/products/${fileName}`;
-    return {
-      url: assetUrl(url),
-      path: url,
-      fileName: dto.fileName?.trim() || fileName,
-      size: buffer.length
-    };
   }
 
   private async getMerchantProduct(storeId: string, storeSkuId: string) {

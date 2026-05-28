@@ -19,17 +19,17 @@
     </view>
 
     <view class="card section">
-      <text class="section-title">门店信息</text>
+        <text class="section-title">门店信息</text>
       <view class="store-row">
         <view>
           <text class="store-name">{{ order.storeName }}</text>
-          <text class="muted">福州市台江区工业路193号</text>
+          <text class="muted">{{ order.storeAddress || "门店地址待同步" }}</text>
         </view>
         <text class="phone">☎</text>
       </view>
       <view class="button-row">
-        <button class="ghost-button">联系门店</button>
-        <button class="ghost-button">联系骑手</button>
+        <button class="ghost-button" @tap="callStore">联系门店</button>
+        <button class="ghost-button" @tap="callRider">联系骑手</button>
       </view>
     </view>
 
@@ -92,6 +92,7 @@ const emptyOrder: ApiOrder = {
   storePhone: "",
   storeAddress: "",
   riderNo: "-",
+  deliveryTask: null,
   receiver: "-",
   address: "-",
   createdAt: "",
@@ -106,7 +107,8 @@ const steps = ["已支付", "已接单", "已取货", "配送中", "已完成"];
 const activeStepIndex = computed(() => {
   const status = order.value.statusCode;
   if (status === "COMPLETED") return 4;
-  if (status === "RIDER_PICKED_UP" || status === "DELIVERING") return 3;
+  if (status === "DELIVERING") return 3;
+  if (status === "RIDER_PICKED_UP") return 2;
   if (status === "READY_FOR_PICKUP") return 1;
   if (status === "STORE_ACCEPTED") return 1;
   if (status === "WAITING_STORE_ACCEPT" || status === "TRANSFERRED") return 0;
@@ -162,6 +164,28 @@ function stopPolling() {
     clearInterval(pollTimer);
     pollTimer = undefined;
   }
+}
+
+function makePhoneCall(phoneNumber: string, emptyTitle: string) {
+  if (!phoneNumber) {
+    uni.showToast({ title: emptyTitle, icon: "none" });
+    return;
+  }
+
+  uni.makePhoneCall({
+    phoneNumber,
+    fail() {
+      uni.showToast({ title: "H5 预览无法拨号，请在微信内测试", icon: "none" });
+    }
+  });
+}
+
+function callStore() {
+  makePhoneCall(order.value.storePhone, "门店电话待同步");
+}
+
+function callRider() {
+  makePhoneCall(order.value.deliveryTask?.riderPhone ?? "", "骑手电话待配送平台回传");
 }
 
 onLoad((query) => {

@@ -75,6 +75,8 @@ const store = ref<MerchantStore | null>(getCachedMerchantStore());
 const savingVoiceSwitch = ref(false);
 let countdownTimer: ReturnType<typeof setInterval> | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let pendingSnapshotReady = false;
+let lastPendingOrderIds = new Set<string>();
 const voiceReminderText = computed(() =>
   store.value?.voiceReminderSwitch
     ? "模拟开启，收到新单时播放提示音"
@@ -92,6 +94,7 @@ function formatCountdown(seconds: number) {
 async function loadPendingOrders() {
   try {
     const [storeData, pendingOrders] = await Promise.all([api.me(), api.pendingOrders()]);
+    notifyNewPendingOrders(pendingOrders, Boolean(storeData.voiceReminderSwitch));
     store.value = storeData;
     saveCachedMerchantStore(storeData);
     orders.value = pendingOrders;
@@ -99,6 +102,23 @@ async function loadPendingOrders() {
     orders.value = [];
     uni.showToast({ title: "待接单加载失败", icon: "none" });
   }
+}
+
+function notifyNewPendingOrders(pendingOrders: MerchantOrder[], voiceEnabled: boolean) {
+  const nextIds = new Set(pendingOrders.map((order) => order.id));
+  const newOrders = pendingOrders.filter((order) => !lastPendingOrderIds.has(order.id));
+  lastPendingOrderIds = nextIds;
+
+  if (!pendingSnapshotReady) {
+    pendingSnapshotReady = true;
+    return;
+  }
+  if (newOrders.length === 0 || !voiceEnabled) {
+    return;
+  }
+
+  uni.vibrateShort?.({ type: "medium" });
+  uni.showToast({ title: `叮，新订单 ${newOrders.length} 单`, icon: "none" });
 }
 
 function getSwitchValue(event: Event) {
