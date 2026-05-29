@@ -2,7 +2,7 @@ import { resolve4 } from "node:dns/promises";
 import { PageShell, Panel, StatusPill } from "../admin-ui";
 import { getApiHealth } from "../lib/api";
 
-const previewIp = process.env.DEPLOYMENT_PREVIEW_IP || "118.25.15.82";
+const previewIp = process.env.DEPLOYMENT_PREVIEW_IP || "122.51.248.210";
 const domainTargets = [
   { host: "jssbuy.cn", usage: "主域名/备案主体" },
   { host: "www.jssbuy.cn", usage: "服务说明页预留" },

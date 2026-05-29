@@ -12,7 +12,7 @@ const checks = [];
 
 const expectedTargets = {
   local: ["http://localhost:3001", "http://127.0.0.1:3001"],
-  server: ["http://118.25.15.82"],
+  server: ["http://122.51.248.210"],
   production: ["https://api.jssbuy.cn"]
 };
 
@@ -70,7 +70,7 @@ addCheck(
 );
 
 await checkHealth("本机 API", "http://localhost:3001/api/health", target === "local");
-await checkHealth("服务器 API", "http://118.25.15.82/api/health", target === "server");
+await checkHealth("服务器 API", "http://122.51.248.210/api/health", target === "server");
 
 console.log("");
 for (const check of checks) {
@@ -124,7 +124,7 @@ function normalizeBaseUrl(value) {
   const clean = value.replace(/\/api$/, "").replace(/\/$/, "");
   if (clean === "http://localhost:3001") return clean;
   if (clean === "http://127.0.0.1:3001") return clean;
-  if (clean === "http://118.25.15.82") return clean;
+  if (clean === "http://122.51.248.210") return clean;
   if (clean === "https://api.jssbuy.cn") return clean;
   return clean;
 }

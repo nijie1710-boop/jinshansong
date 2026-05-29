@@ -108,7 +108,7 @@ pnpm build:mp:server-preview
 pnpm check:env:server
 ```
 
-这样用户端 H5、商家端 H5、后台页面都会请求 `http://118.25.15.82/api`，和
+这样用户端 H5、商家端 H5、后台页面都会请求 `http://122.51.248.210/api`，和
 `pnpm build:mp:server-preview` 打出的微信小程序预览包保持同一个数据库。需要回到纯本地开发时，再分别运行
 `pnpm dev:user`、`pnpm dev:merchant`、`pnpm dev:admin`，并重新构建本地 API 预览版小程序：
 
@@ -256,7 +256,7 @@ pnpm open:mp:user
 pnpm open:mp:merchant
 ```
 
-该构建会使用真实 AppID，并把小程序 API 指向 `http://118.25.15.82`。微信开发者工具内需要开启“不校验合法域名、TLS 版本以及 HTTPS 证书”。备案和 HTTPS 完成后改用 `pnpm build:mp:real`。
+该构建会使用真实 AppID，并把小程序 API 指向 `http://122.51.248.210`。微信开发者工具内需要开启“不校验合法域名、TLS 版本以及 HTTPS 证书”。备案和 HTTPS 完成后改用 `pnpm build:mp:real`。
 
 生产自检还会提示这些待完成项：
 

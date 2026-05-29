@@ -93,7 +93,7 @@ function inferBuiltApiTarget(text) {
   if (value.includes("127.0.0.1") || value.includes("localhost")) {
     return `${value}（本地 H5/开发者工具预览）`;
   }
-  if (value.includes("118.25.15.82")) {
+  if (value.includes("122.51.248.210")) {
     return `${value}（服务器 IP 预览，需关闭微信开发者工具合法域名校验）`;
   }
   if (value.includes("api.jssbuy.cn")) {
@@ -134,7 +134,7 @@ if (env.MP_WEIXIN_MODE === "real") {
   addCheck(isHttpsUrl(env.VITE_MP_API_BASE_URL), "error", "正式小程序 API 必须使用 HTTPS");
   addCheck(isHttpsUrl(env.API_PUBLIC_BASE_URL), "error", "正式小程序图片访问域名必须使用 HTTPS");
 } else {
-  const hasServerPreviewBuild = builtApiTargets.some((target) => target.includes("118.25.15.82"));
+  const hasServerPreviewBuild = builtApiTargets.some((target) => target.includes("122.51.248.210"));
   if (hasServerPreviewBuild) {
     addCheck(true, "warning", "当前构建包使用服务器 IP 预览；微信开发者工具需关闭合法域名校验");
   } else {
