@@ -141,7 +141,9 @@ export function StatusPill({ children, tone = "orange" }: { children: ReactNode;
           : "bg-orange-50 text-[#FF7A00]";
 
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${className}`}
+    >
       {children}
     </span>
   );

@@ -5,6 +5,8 @@ import {
   rejectApplicationAction,
   saveStoreDeliveryProviderAction
 } from "./actions";
+import { ClipboardCheck, MapPin, Phone, Store, Truck, UserCheck } from "lucide-react";
+import type { ReactNode } from "react";
 
 function applicationTone(status: string) {
   if (status === "APPROVED") return "green";
@@ -17,6 +19,8 @@ export default async function StoresPage() {
   const pendingCount = applications.filter((item) => item.status === "PENDING").length;
   const approvedCount = applications.filter((item) => item.status === "APPROVED").length;
   const rejectedCount = applications.filter((item) => item.status === "REJECTED").length;
+  const openStoreCount = stores.filter((store) => store.status === "OPEN").length;
+  const deliveryReadyCount = stores.filter((store) => store.deliverySummary?.status === "READY").length;
   const sortedApplications = [...applications].sort(
     (left, right) => applicationSort(left.status) - applicationSort(right.status)
   );
@@ -33,20 +37,53 @@ export default async function StoresPage() {
         </div>
       }
     >
-      <Panel>
-        <div className="grid gap-3 text-sm text-[#666666] md:grid-cols-3">
-          <div className="rounded-xl bg-[#FFF7ED] p-4">
-            <div className="font-semibold text-[#111111]">1. 商家申请入驻</div>
-            <div className="mt-1">商家端提交联系人、手机号、门店地址和经营品类。</div>
-          </div>
-          <div className="rounded-xl bg-[#F7F8FA] p-4">
-            <div className="font-semibold text-[#111111]">2. 平台审核门店</div>
-            <div className="mt-1">审核通过后自动生成商家门店账号和门店编码。</div>
-          </div>
-          <div className="rounded-xl bg-[#ECFDF5] p-4">
-            <div className="font-semibold text-[#111111]">3. 商家上架商品</div>
-            <div className="mt-1">商家登录后才能上传商品，商品仍需后台二次审核。</div>
-          </div>
+      <Panel title="入驻处理台">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <StoreSummary
+            icon={<UserCheck className="size-5" />}
+            label="待审核申请"
+            value={pendingCount}
+            hint="商家提交资料后进入"
+            tone="orange"
+          />
+          <StoreSummary
+            icon={<Store className="size-5" />}
+            label="门店总数"
+            value={stores.length}
+            hint={`${openStoreCount} 家营业中`}
+          />
+          <StoreSummary
+            icon={<Truck className="size-5" />}
+            label="配送已就绪"
+            value={deliveryReadyCount}
+            hint="美团/蜂鸟门店绑定检查"
+            tone="green"
+          />
+          <StoreSummary
+            icon={<ClipboardCheck className="size-5" />}
+            label="已通过申请"
+            value={approvedCount}
+            hint={rejectedCount > 0 ? `${rejectedCount} 个已驳回` : "暂无驳回"}
+          />
+        </div>
+        <div className="mt-4 grid gap-3 text-sm text-[#666666] md:grid-cols-3">
+          <FlowStep
+            index="1"
+            title="商家申请入驻"
+            description="商家端提交联系人、手机号、门店地址和经营品类。"
+            tone="orange"
+          />
+          <FlowStep
+            index="2"
+            title="平台审核门店"
+            description="审核通过后自动生成商家门店账号和门店编码。"
+          />
+          <FlowStep
+            index="3"
+            title="配置配送与上架"
+            description="商家登录上传商品，平台审核商品后用户端可见。"
+            tone="green"
+          />
         </div>
       </Panel>
 
@@ -56,22 +93,39 @@ export default async function StoresPage() {
         ) : (
           <div className="space-y-3">
             {sortedApplications.map((application) => (
-              <div key={application.id} className="rounded-xl bg-[#F7F8FA] p-4">
+              <div
+                key={application.id}
+                className={`rounded-2xl border bg-[#F7F8FA] p-4 shadow-sm ${
+                  application.status === "PENDING"
+                    ? "border-[#FFB020]/45"
+                    : application.status === "REJECTED"
+                      ? "border-red-100"
+                      : "border-black/5"
+                }`}
+              >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{application.storeName}</span>
+                      <span className="text-base font-semibold">{application.storeName}</span>
                       <StatusPill tone={applicationTone(application.status)}>
                         {application.statusText}
                       </StatusPill>
                     </div>
-                    <div className="mt-2 text-sm text-[#666666]">
-                      {application.applicantName} · {application.applicantPhone} ·{" "}
-                      {application.city}
-                      {application.district}
-                      {application.address}
+                    <div className="mt-3 grid gap-2 text-sm text-[#666666] xl:grid-cols-2">
+                      <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+                        <Phone className="size-4 text-[#FF7A00]" />
+                        {application.applicantName} · {application.applicantPhone}
+                      </div>
+                      <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+                        <MapPin className="size-4 text-[#FF7A00]" />
+                        <span className="truncate">
+                          {application.city}
+                          {application.district}
+                          {application.address}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-[#666666]">
+                    <div className="mt-3 rounded-xl bg-white px-3 py-2 text-sm text-[#666666]">
                       经营品类：{application.categoryNote || "未填写"} · 执照号：
                       {application.businessLicenseNo || "未填写"}
                     </div>
@@ -142,34 +196,42 @@ export default async function StoresPage() {
           </div>
         </Panel>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           {stores.map((store) => (
             <Panel key={store.id}>
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-semibold">{store.name}</div>
-                  <div className="mt-1 text-sm text-[#666666]">{store.code}</div>
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7ED] text-[#FF7A00]">
+                    <Store className="size-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold">{store.name}</div>
+                    <div className="mt-1 text-sm text-[#666666]">{store.code}</div>
+                  </div>
                 </div>
                 <StatusPill tone={store.status === "OPEN" ? "green" : "gray"}>
                   {store.statusText}
                 </StatusPill>
               </div>
-              <div className="mt-4 text-sm text-[#666666]">{store.address}</div>
-              <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
-                <div className="rounded-lg bg-[#F7F8FA] p-3">
+              <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#F7F8FA] px-3 py-3 text-sm text-[#666666]">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-[#FF7A00]" />
+                <span>{store.address}</span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-xl bg-[#F7F8FA] p-3">
                   <div className="text-[#666666]">订单</div>
                   <div className="mt-1 text-lg font-semibold">{store.orderCount}</div>
                 </div>
-                <div className="rounded-lg bg-[#F7F8FA] p-3">
+                <div className="rounded-xl bg-[#F7F8FA] p-3">
                   <div className="text-[#666666]">商品</div>
                   <div className="mt-1 text-lg font-semibold">{store.productCount}</div>
                 </div>
-                <div className="rounded-lg bg-[#F7F8FA] p-3">
+                <div className="rounded-xl bg-[#F7F8FA] p-3">
                   <div className="text-[#666666]">接单率</div>
                   <div className="mt-1 text-lg font-semibold">{store.acceptRate}</div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 rounded-2xl bg-[#FFF7ED] px-3 py-3">
                 <StatusPill tone={store.acceptOrderSwitch ? "green" : "gray"}>接单开关</StatusPill>
                 <StatusPill tone={store.autoTransferSwitch ? "green" : "gray"}>自动转单</StatusPill>
                 <StatusPill tone={store.voiceReminderSwitch ? "green" : "gray"}>
@@ -263,6 +325,71 @@ export default async function StoresPage() {
         </div>
       )}
     </PageShell>
+  );
+}
+
+function StoreSummary({
+  icon,
+  label,
+  value,
+  hint,
+  tone = "default"
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  hint: string;
+  tone?: "default" | "orange" | "green";
+}) {
+  const toneClass =
+    tone === "orange"
+      ? "bg-orange-50 text-[#FF7A00]"
+      : tone === "green"
+        ? "bg-emerald-50 text-emerald-600"
+        : "bg-[#F7F8FA] text-[#111111]";
+
+  return (
+    <div className="rounded-2xl bg-[#F7F8FA] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-[#666666]">{label}</div>
+        <div className={`flex size-9 items-center justify-center rounded-2xl ${toneClass}`}>
+          {icon}
+        </div>
+      </div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-xs text-[#999999]">{hint}</div>
+    </div>
+  );
+}
+
+function FlowStep({
+  index,
+  title,
+  description,
+  tone = "gray"
+}: {
+  index: string;
+  title: string;
+  description: string;
+  tone?: "orange" | "green" | "gray";
+}) {
+  const toneClass =
+    tone === "orange"
+      ? "bg-[#FFF7ED] text-[#8A4B13]"
+      : tone === "green"
+        ? "bg-[#ECFDF5] text-emerald-700"
+        : "bg-white text-[#666666]";
+
+  return (
+    <div className={`rounded-2xl p-4 ring-1 ring-black/5 ${toneClass}`}>
+      <div className="flex items-center gap-2 font-semibold text-[#111111]">
+        <span className="flex size-7 items-center justify-center rounded-full bg-white text-xs text-[#FF7A00] shadow-sm">
+          {index}
+        </span>
+        {title}
+      </div>
+      <div className="mt-2 leading-6">{description}</div>
+    </div>
   );
 }
 
