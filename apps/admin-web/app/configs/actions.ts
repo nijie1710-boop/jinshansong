@@ -89,6 +89,25 @@ export async function saveFinanceConfig(formData: FormData) {
   revalidatePath("/configs");
 }
 
+export async function savePaymentConfig(formData: FormData) {
+  await updateSystemConfig(
+    "payment",
+    {
+      mode: stringValue(formData, "mode") === "wechat" ? "wechat" : "mock",
+      userPayChannel:
+        stringValue(formData, "userPayChannel") === "WECHAT_MINIPROGRAM"
+          ? "WECHAT_MINIPROGRAM"
+          : "MOCK",
+      refundMode: stringValue(formData, "refundMode") === "wechat" ? "wechat" : "mock",
+      notifyUrl: stringValue(formData, "notifyUrl"),
+      requirePaidBeforeDispatch: boolValue(formData, "requirePaidBeforeDispatch"),
+      note: stringValue(formData, "note")
+    },
+    "支付通道配置；真实扣款前使用 mock，微信商户号和证书到位后切换"
+  );
+  revalidatePath("/configs");
+}
+
 export async function saveDeliveryAggregationConfig(formData: FormData) {
   const providerCodes = [
     ["MEITUAN", "美团配送", "4031", 1, 0, 199],

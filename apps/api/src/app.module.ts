@@ -8,6 +8,7 @@ import { ConfigModule as BusinessConfigModule } from "./modules/config/config.mo
 import { CouponModule } from "./modules/coupon/coupon.module";
 import { DeliveryModule } from "./modules/delivery/delivery.module";
 import { FinanceModule } from "./modules/finance/finance.module";
+import { HealthModule } from "./modules/health/health.module";
 import { JobModule } from "./modules/job/job.module";
 import { OrderModule } from "./modules/order/order.module";
 import { PaymentModule } from "./modules/payment/payment.module";
@@ -44,6 +45,7 @@ import { RedisModule } from "./infra/redis/redis.module";
     CommissionModule,
     SettlementModule,
     FinanceModule,
+    HealthModule,
     RiskModule,
     BusinessConfigModule,
     JobModule

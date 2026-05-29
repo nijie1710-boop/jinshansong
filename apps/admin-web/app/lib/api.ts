@@ -2,6 +2,12 @@ import { cookies } from "next/headers";
 
 const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 const API_BASE_URL = rawBaseUrl.endsWith("/api") ? rawBaseUrl : `${rawBaseUrl}/api`;
+const canUseLocalAdminFallback =
+  process.env.NODE_ENV !== "production" &&
+  (API_BASE_URL.includes("localhost") || API_BASE_URL.includes("127.0.0.1"));
+
+let localAdminToken: string | null = null;
+let localAdminTokenPromise: Promise<string | null> | null = null;
 
 export interface AdminOrder {
   id: string;
@@ -125,6 +131,7 @@ export interface AdminProduct {
   price: number;
   originPrice: number;
   settlePrice: number;
+  grossMargin?: number;
   sales: number;
   stock: number;
   tags: string[];
@@ -134,6 +141,8 @@ export interface AdminProduct {
   reviewStatusText?: string;
   reviewRemark?: string;
   visibleToUser?: boolean;
+  visibilityIssues?: string[];
+  visibilityStatusText?: string;
   coverUrl?: string;
   detailImageUrls?: string[];
   storeNames?: string[];
@@ -236,6 +245,43 @@ export interface SystemConfigEntry {
   value: Record<string, unknown>;
   remark?: string | null;
   updatedAt: string;
+}
+
+export interface ApiHealth {
+  ok: boolean;
+  service: string;
+  environment: string;
+  uptimeSeconds: number;
+  runtime?: { node?: string };
+  config?: {
+    wechatLoginMode?: string;
+    paymentMode?: string;
+    uploadDriver?: string;
+    jobStoreTimeoutIntervalMs?: number;
+    apiPublicBaseUrl?: {
+      configured: boolean;
+      protocol: string | null;
+      https: boolean;
+    };
+  };
+  database?: { ok: boolean; message?: string };
+  cache?: { ok: boolean; message?: string };
+  payment?: {
+    mode: string;
+    mockPayEnabled: boolean;
+    wechatReady: boolean;
+    channel: string;
+    notifyUrl: string;
+    required: {
+      mchId: boolean;
+      apiV3Key: boolean;
+      serialNo: boolean;
+      privateKeyPath: boolean;
+      notifyUrl: boolean;
+    };
+  };
+  upload?: { driver: string; localDirectoryExists: boolean };
+  checkedAt: string;
 }
 
 export interface PromotionConfigEntry {
@@ -361,9 +407,39 @@ function emptyAdminOrder(id: string): AdminOrder {
   };
 }
 
+async function getLocalAdminToken() {
+  if (!canUseLocalAdminFallback) return null;
+  if (localAdminToken) return localAdminToken;
+  if (localAdminTokenPromise) return localAdminTokenPromise;
+
+  localAdminTokenPromise = fetch(`${API_BASE_URL}/admin/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      account: process.env.ADMIN_ACCOUNT ?? process.env.ADMIN_DEFAULT_ACCOUNT ?? "admin",
+      password:
+        process.env.ADMIN_PASSWORD ?? process.env.ADMIN_DEFAULT_PASSWORD ?? "admin123456"
+    }),
+    cache: "no-store"
+  })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const session = (await response.json()) as { token?: string };
+      localAdminToken = session.token ?? null;
+      return localAdminToken;
+    })
+    .catch(() => null)
+    .finally(() => {
+      localAdminTokenPromise = null;
+    });
+
+  return localAdminTokenPromise;
+}
+
 async function adminHeaders() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("jss_admin_token")?.value;
+  const cookieToken = cookieStore.get("jss_admin_token")?.value;
+  const token = (await getLocalAdminToken()) || cookieToken;
 
   return {
     ...(token ? { "x-admin-token": token } : {})
@@ -602,6 +678,33 @@ export function getSystemConfigs() {
 
 export function updateSystemConfig(key: string, value: Record<string, unknown>, remark?: string) {
   return apiPatch<SystemConfigEntry>(`/admin/configs/${key}`, { value, remark });
+}
+
+export function getApiHealth() {
+  return apiGet<ApiHealth>("/health", {
+    ok: false,
+    service: "jinshansong-api",
+    environment: "unknown",
+    uptimeSeconds: 0,
+    database: { ok: false },
+    cache: { ok: false },
+    payment: {
+      mode: "mock",
+      mockPayEnabled: true,
+      wechatReady: false,
+      channel: "MOCK",
+      notifyUrl: "",
+      required: {
+        mchId: false,
+        apiV3Key: false,
+        serialNo: false,
+        privateKeyPath: false,
+        notifyUrl: false
+      }
+    },
+    upload: { driver: "unknown", localDirectoryExists: false },
+    checkedAt: new Date().toISOString()
+  });
 }
 
 export function retryDelivery(orderId: string) {

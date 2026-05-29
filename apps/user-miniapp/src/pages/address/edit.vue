@@ -36,31 +36,24 @@
       </view>
       <view class="field">
         <text class="label">城市</text>
-        <textarea
-          :value="form.city"
-          adjust-position
-          auto-height
-          class="field-input single-line-input"
-          cursor-spacing="20"
-          maxlength="12"
-          placeholder="福州市"
-          :show-confirm-bar="false"
-          @input="setTextField('city', $event)"
-        />
+        <view class="select-field fixed">
+          <text>福州市</text>
+          <text class="select-note">已固定</text>
+        </view>
       </view>
       <view class="field">
         <text class="label">区域</text>
-        <textarea
-          :value="form.district"
-          adjust-position
-          auto-height
-          class="field-input single-line-input"
-          cursor-spacing="20"
-          maxlength="16"
-          placeholder="台江区 / 仓山区"
-          :show-confirm-bar="false"
-          @input="setTextField('district', $event)"
-        />
+        <picker
+          mode="selector"
+          :range="fuzhouDistricts"
+          :value="selectedDistrictIndex"
+          @change="handleDistrictPickerChange"
+        >
+          <view class="select-field">
+            <text>{{ form.district || "请选择区域" }}</text>
+            <text class="select-arrow">›</text>
+          </view>
+        </picker>
         <view class="district-grid">
           <button
             v-for="district in fuzhouDistricts"
@@ -129,7 +122,7 @@ const form = reactive<AddressPayload>({
   isDefault: false
 });
 
-type TextField = "name" | "phone" | "city" | "district" | "detail";
+type TextField = "name" | "phone" | "detail";
 type UniInputEvent = Event & {
   detail?: { value?: string };
   target?: { value?: string };
@@ -139,8 +132,10 @@ const locationText = computed(() => {
   if (form.latitude && form.longitude) {
     return `已记录定位 ${form.latitude}, ${form.longitude}`;
   }
-  return "微信小程序内可选择地图位置，H5 预览可先手动填写";
+  return "可选择地图位置，也可以先手动填写收货地址";
 });
+
+const selectedDistrictIndex = computed(() => Math.max(0, fuzhouDistricts.indexOf(form.district)));
 
 function eventValue(event: Event) {
   const inputEvent = event as UniInputEvent;
@@ -157,18 +152,31 @@ function handleDefaultChange(event: Event) {
 }
 
 function selectDistrict(district: string) {
-  form.city = form.city.trim() || "福州市";
+  form.city = "福州市";
   form.district = district;
 }
 
-function applyLocation(result: { name?: string; address?: string; latitude?: number; longitude?: number }) {
+function handleDistrictPickerChange(event: { detail?: { value?: number | string } }) {
+  const index = Number(event.detail?.value ?? 0);
+  selectDistrict(fuzhouDistricts[index] ?? fuzhouDistricts[0]);
+}
+
+function applyLocation(result: {
+  name?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
   const addressText = [result.address, result.name].filter(Boolean).join("");
   const matchedDistrict = fuzhouDistricts.find((district) => addressText.includes(district));
 
   form.city = addressText.includes("福州") ? "福州市" : form.city || "福州市";
   form.district = matchedDistrict ?? form.district;
   if (addressText) {
-    form.detail = addressText.replace("福建省", "").replace("福州市", "").replace(form.district, "");
+    form.detail = addressText
+      .replace("福建省", "")
+      .replace("福州市", "")
+      .replace(form.district, "");
   }
   if (typeof result.latitude === "number") {
     form.latitude = String(result.latitude);
@@ -190,7 +198,7 @@ function chooseAddressLocation() {
         uni.showToast({ title: "已记录当前位置，请补充门牌号", icon: "none" });
       },
       fail() {
-        uni.showToast({ title: "H5 预览请手动填写，微信内需授权定位", icon: "none" });
+        uni.showToast({ title: "定位不可用，请手动填写地址", icon: "none" });
       }
     });
   };
@@ -379,7 +387,8 @@ onLoad((query) => {
 }
 
 .field-input,
-.field-textarea {
+.field-textarea,
+.select-field {
   box-sizing: border-box;
   width: 100%;
   border-radius: 14px;
@@ -395,6 +404,35 @@ onLoad((query) => {
   max-height: 42px;
   overflow: hidden;
   line-height: 20px;
+}
+
+.select-field {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.select-field.fixed {
+  color: #666666;
+}
+
+.select-note {
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.select-arrow {
+  color: #ff7a00;
+  font-size: 20px;
+  font-weight: 900;
 }
 
 .field-textarea {

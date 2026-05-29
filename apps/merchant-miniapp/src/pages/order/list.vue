@@ -87,7 +87,7 @@ const tabs: { key: TabKey; label: string; statuses: string[]; emptyText: string 
     key: "pending",
     label: "待接单",
     statuses: ["PAID", "WAITING_STORE_ACCEPT", "TRANSFERRED"],
-    emptyText: "待用户完成模拟支付后，这里会出现待接单订单"
+    emptyText: "待用户完成支付后，这里会出现待接单订单"
   },
   {
     key: "accepted",

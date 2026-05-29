@@ -9,7 +9,11 @@ export default async function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard label="今日订单数" value={dashboard.todayOrders.toLocaleString()} />
         <MetricCard label="今日成交额" value={formatCurrency(dashboard.todaySales)} />
-        <MetricCard label="今日净利润" value={formatCurrency(dashboard.todayProfit)} tone="green" />
+        <MetricCard
+          label="今日净利润"
+          value={formatCurrency(dashboard.todayProfit)}
+          tone={dashboard.todayProfit < 0 ? "red" : "green"}
+        />
         <MetricCard label="负利润订单" value={dashboard.negativeOrders} tone="red" />
       </div>
 

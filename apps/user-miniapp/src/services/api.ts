@@ -13,8 +13,10 @@ export interface ApiProduct {
   price: number;
   originPrice: number;
   settlePrice: number;
+  grossMargin?: number;
   sales: number;
   stock: number;
+  storeCount?: number;
   tags: string[];
   specs: string[];
   color: string;
@@ -211,8 +213,12 @@ function getStorageString(key: string) {
   return typeof value === "string" ? value : "";
 }
 
+export function getUserToken() {
+  return getStorageString(USER_TOKEN_KEY);
+}
+
 function authHeaders() {
-  const token = getStorageString(USER_TOKEN_KEY);
+  const token = getUserToken();
   return token ? { "x-user-token": token } : {};
 }
 
@@ -228,6 +234,11 @@ export function saveCachedUserProfile(profile: UserProfile) {
 export function getCachedUserProfile() {
   const profile = uni.getStorageSync(USER_PROFILE_KEY);
   return profile && typeof profile === "object" ? (profile as UserProfile) : null;
+}
+
+export function clearUserSession() {
+  uni.removeStorageSync(USER_TOKEN_KEY);
+  uni.removeStorageSync(USER_PROFILE_KEY);
 }
 
 export function request<T>(

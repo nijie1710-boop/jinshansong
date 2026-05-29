@@ -20,23 +20,43 @@ export function PageShell({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
-          {description ? <p className="mt-1 text-sm text-[#666666]">{description}</p> : null}
+    <section className="space-y-6">
+      <div className="relative overflow-hidden rounded-[24px] bg-white p-5 shadow-[0_18px_45px_rgba(16,24,32,0.07)] ring-1 ring-black/5 md:p-6">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF7A00] via-[#FFB020] to-transparent" />
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-semibold tracking-normal">{title}</h1>
+            {description ? (
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-[#666666]">{description}</p>
+            ) : null}
+          </div>
+          {actions ? <div className="shrink-0">{actions}</div> : null}
         </div>
-        {actions}
       </div>
       {children}
     </section>
   );
 }
 
-export function Panel({ title, children }: { title?: string; children: ReactNode }) {
+export function Panel({
+  title,
+  children,
+  className = ""
+}: {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(17,17,17,0.05)] ring-1 ring-black/5">
-      {title ? <h2 className="mb-4 text-base font-semibold">{title}</h2> : null}
+    <div
+      className={`rounded-[22px] bg-white p-5 shadow-[0_14px_38px_rgba(16,24,32,0.06)] ring-1 ring-black/5 md:p-6 ${className}`}
+    >
+      {title ? (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="h-5 w-1 rounded-full bg-[#FF7A00]" />
+          <h2 className="text-base font-semibold">{title}</h2>
+        </div>
+      ) : null}
       {children}
     </div>
   );
@@ -59,11 +79,20 @@ export function MetricCard({
         : tone === "green"
           ? "text-emerald-600"
           : "text-[#111111]";
+  const barClass =
+    tone === "red"
+      ? "bg-red-500"
+      : tone === "green"
+        ? "bg-emerald-500"
+        : tone === "orange"
+          ? "bg-[#FF7A00]"
+          : "bg-[#FF7A00]/70";
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(17,17,17,0.05)] ring-1 ring-black/5">
-      <div className="text-sm text-[#666666]">{label}</div>
-      <div className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</div>
+    <div className="relative overflow-hidden rounded-[22px] bg-white p-5 shadow-[0_14px_38px_rgba(16,24,32,0.06)] ring-1 ring-black/5">
+      <div className={`absolute left-0 top-0 h-full w-1 ${barClass}`} />
+      <div className="text-sm font-medium text-[#666666]">{label}</div>
+      <div className={`mt-2 text-[28px] font-semibold leading-tight ${toneClass}`}>{value}</div>
     </div>
   );
 }
@@ -87,11 +116,11 @@ export function MiniBars({
   const color = tone === "orange" ? "bg-[#FF7A00]" : "bg-blue-500";
 
   return (
-    <div className="flex h-48 items-end gap-3">
+    <div className="flex h-48 items-end gap-3 rounded-2xl bg-[#F7F8FA] px-4 pb-3 pt-5">
       {values.map((value, index) => (
         <div key={`${value}-${index}`} className="flex h-full flex-1 flex-col justify-end gap-2">
           <div
-            className={`w-full rounded-t-md ${color}`}
+            className={`w-full rounded-t-lg ${color} shadow-sm`}
             style={{ height: `${Math.max(16, (value / max) * 160)}px` }}
           />
           <span className="text-center text-xs text-[#666666]">{index + 1}</span>

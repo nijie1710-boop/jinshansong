@@ -39,9 +39,11 @@
       </button>
       <!-- #endif -->
 
-      <button class="ghost-button" @tap="goHome">先逛一逛</button>
-
-      <text class="agreement">登录即代表同意《用户服务协议》《隐私政策》</text>
+      <view class="agreement">
+        <text>登录即代表同意</text>
+        <text class="agreement-link" @tap="openLegal('terms')">《用户服务协议》</text>
+        <text class="agreement-link" @tap="openLegal('privacy')">《隐私政策》</text>
+      </view>
     </view>
 
     <view class="card flow-card">
@@ -49,21 +51,21 @@
         <text class="flow-dot active"></text>
         <view>
           <text class="flow-title">微信身份</text>
-          <text class="muted">本地预览自动模拟 openId，正式 AppID 后走 code2Session</text>
+          <text class="muted">用于识别账户、地址、优惠券和购买记录</text>
         </view>
       </view>
       <view class="flow-row">
         <text class="flow-dot"></text>
         <view>
           <text class="flow-title">手机号授权</text>
-          <text class="muted">小程序环境会携带手机号授权 code，H5 继续走模拟登录</text>
+          <text class="muted">用于配送联系、售后核验和异常订单提醒</text>
         </view>
       </view>
       <view class="flow-row">
         <text class="flow-dot"></text>
         <view>
-          <text class="flow-title">小程序正式登录</text>
-          <text class="muted">切换环境变量即可接真实微信登录接口</text>
+          <text class="flow-title">登录成功</text>
+          <text class="muted">进入首页后可管理地址、优惠券和订单</text>
         </view>
       </view>
     </view>
@@ -71,10 +73,13 @@
 </template>
 
 <script setup lang="ts">
+import { onLoad } from "@dcloudio/uni-app";
 import { ref } from "vue";
+import { goAfterUserLogin } from "../../services/auth-guard";
 import { ApiRequestError, api, saveUserSession } from "../../services/api";
 
 const loading = ref(false);
+const redirectUrl = ref("");
 
 type PhoneNumberEvent = {
   detail?: {
@@ -83,9 +88,14 @@ type PhoneNumberEvent = {
   };
 };
 
-function goHome() {
-  uni.switchTab({ url: "/pages/home/index" });
+function openLegal(type: "terms" | "privacy") {
+  uni.navigateTo({ url: `/pages/legal/index?type=${type}` });
 }
+
+onLoad((query) => {
+  const redirect = query?.redirect;
+  redirectUrl.value = typeof redirect === "string" ? redirect : "";
+});
 
 function getWechatLoginCode() {
   return new Promise<string>((resolve) => {
@@ -124,7 +134,9 @@ async function handleLogin(event?: PhoneNumberEvent) {
     });
     saveUserSession(session);
     uni.showToast({ title: phoneRejected ? "已登录，未授权手机号" : "登录成功", icon: "success" });
-    setTimeout(goHome, 400);
+    setTimeout(() => {
+      goAfterUserLogin(redirectUrl.value);
+    }, 400);
   } catch (error) {
     const message =
       error instanceof ApiRequestError || error instanceof Error
@@ -277,9 +289,18 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .agreement {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
   color: #999999;
   text-align: center;
   font-size: 11px;
+  line-height: 1.7;
+}
+
+.agreement-link {
+  color: #ff7a00;
 }
 
 .flow-card {

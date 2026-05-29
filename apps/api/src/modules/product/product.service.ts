@@ -77,6 +77,41 @@ function decimal(value: number) {
   return (Math.round(value * 100) / 100).toFixed(2);
 }
 
+function margin(salePrice: number, settlePrice: number) {
+  return Math.round((salePrice - settlePrice) * 100) / 100;
+}
+
+function productVisibilityIssues(options: {
+  stock: number;
+  productStatus: ProductStatus;
+  skuStatus: ProductStatus;
+  reviewStatus: ProductReviewStatus;
+}) {
+  const issues: string[] = [];
+
+  if (options.reviewStatus === ProductReviewStatus.PENDING) {
+    issues.push("待后台审核");
+  }
+  if (options.reviewStatus === ProductReviewStatus.REJECTED) {
+    issues.push("审核未通过");
+  }
+  if (options.productStatus === ProductStatus.OFF_SALE) {
+    issues.push("商品已下架");
+  }
+  if (options.skuStatus === ProductStatus.OFF_SALE) {
+    issues.push("规格已下架");
+  }
+  if (options.stock <= 0) {
+    issues.push("门店库存为0");
+  }
+
+  return issues;
+}
+
+function visibilityStatusText(issues: string[]) {
+  return issues.length > 0 ? issues.join("、") : "审核通过且有库存，用户端可见";
+}
+
 function slugifyName(name: string) {
   return `merchant-${Date.now()}-${
     name
@@ -141,6 +176,29 @@ export class ProductService {
                       mode: Prisma.QueryMode.insensitive
                     }
                   }
+                },
+                {
+                  skus: {
+                    some: {
+                      name: { contains: normalizedKeyword, mode: Prisma.QueryMode.insensitive }
+                    }
+                  }
+                },
+                {
+                  skus: {
+                    some: {
+                      storeSkus: {
+                        some: {
+                          store: {
+                            name: {
+                              contains: normalizedKeyword,
+                              mode: Prisma.QueryMode.insensitive
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               ]
             }
@@ -193,6 +251,8 @@ export class ProductService {
           settlePrice: money(firstSku.defaultSettlePrice),
           sales: 0,
           stock,
+          storeCount: storeNames.length,
+          grossMargin: margin(price, money(firstSku.defaultSettlePrice)),
           tags: ["新人首单", "30-60分钟送达"],
           specs: product.skus.map((sku) => sku.name),
           color: firstSku.name.includes("黑") ? "黑色" : "白色",
@@ -244,39 +304,7 @@ export class ProductService {
       orderBy: { updatedAt: "desc" }
     });
 
-    return storeSkus.map((storeSku, index) => ({
-      id: storeSku.id,
-      storeSkuId: storeSku.id,
-      productId: storeSku.sku.productId,
-      skuId: storeSku.skuId,
-      name: storeSku.sku.product.name,
-      skuName: storeSku.sku.name,
-      categoryId: storeSku.sku.product.categoryId,
-      categoryName: storeSku.sku.product.category?.name ?? "未分类",
-      description: storeSku.sku.product.description ?? "",
-      coverUrl: assetUrl(storeSku.sku.product.coverUrl),
-      detailImageUrls: jsonStringArray(storeSku.sku.product.detailImageUrls)
-        .map(assetUrl)
-        .filter(Boolean),
-      salePrice: money(storeSku.sku.salePrice),
-      settlePrice: money(storeSku.settlePrice),
-      stock: storeSku.stock,
-      status: storeSku.sku.status,
-      reviewStatus: storeSku.sku.product.reviewStatus,
-      reviewStatusText: reviewStatusText(storeSku.sku.product.reviewStatus),
-      reviewRemark: storeSku.sku.product.reviewRemark ?? "",
-      visibleToUser:
-        storeSku.stock > 0 &&
-        storeSku.sku.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.reviewStatus === ProductReviewStatus.APPROVED,
-      available:
-        storeSku.stock > 0 &&
-        storeSku.sku.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.reviewStatus === ProductReviewStatus.APPROVED,
-      imageTone: productTone(index)
-    }));
+    return storeSkus.map((storeSku, index) => this.merchantProductView(storeSku, index));
   }
 
   async createMerchantProduct(
@@ -307,6 +335,9 @@ export class ProductService {
     }
     if (!Number.isFinite(settlePrice) || settlePrice <= 0) {
       throw new BadRequestException("结算价必须大于 0");
+    }
+    if (settlePrice > salePrice) {
+      throw new BadRequestException("结算价不能高于销售价");
     }
 
     const category = dto.categoryId
@@ -400,6 +431,29 @@ export class ProductService {
     }
     if (salePrice !== undefined && (!Number.isFinite(salePrice) || salePrice <= 0)) {
       throw new BadRequestException("销售价必须大于 0");
+    }
+    if (
+      salePrice !== undefined &&
+      settlePrice !== undefined &&
+      Number.isFinite(salePrice) &&
+      Number.isFinite(settlePrice) &&
+      settlePrice > salePrice
+    ) {
+      throw new BadRequestException("结算价不能高于销售价");
+    }
+    if (
+      salePrice !== undefined &&
+      settlePrice === undefined &&
+      money(existing.settlePrice) > salePrice
+    ) {
+      throw new BadRequestException("销售价不能低于当前结算价");
+    }
+    if (
+      settlePrice !== undefined &&
+      salePrice === undefined &&
+      settlePrice > money(existing.sku.salePrice)
+    ) {
+      throw new BadRequestException("结算价不能高于当前销售价");
     }
     if (
       nextStatus !== undefined &&
@@ -499,6 +553,14 @@ export class ProductService {
         const storeNames = Array.from(
           new Set(sku.storeSkus.map((item) => item.store.name).filter(Boolean))
         );
+        const salePrice = money(sku.salePrice);
+        const settlePrice = money(firstStoreSku?.settlePrice ?? sku.defaultSettlePrice);
+        const visibilityIssues = productVisibilityIssues({
+          stock,
+          productStatus: product.status,
+          skuStatus: sku.status,
+          reviewStatus: product.reviewStatus
+        });
 
         return {
           id: product.id,
@@ -508,9 +570,10 @@ export class ProductService {
           name: product.name,
           categoryId: product.categoryId,
           categoryName: product.category?.name ?? "未分类",
-          price: money(sku.salePrice),
-          originPrice: Math.round(money(sku.salePrice) * 1.32 * 10) / 10,
-          settlePrice: money(firstStoreSku?.settlePrice ?? sku.defaultSettlePrice),
+          price: salePrice,
+          originPrice: Math.round(salePrice * 1.32 * 10) / 10,
+          settlePrice,
+          grossMargin: margin(salePrice, settlePrice),
           sales: 0,
           stock,
           tags: ["门店现货", "同城闪送"],
@@ -519,11 +582,9 @@ export class ProductService {
           reviewStatus: product.reviewStatus,
           reviewStatusText: reviewStatusText(product.reviewStatus),
           reviewRemark: product.reviewRemark ?? "",
-          visibleToUser:
-            stock > 0 &&
-            product.status === ProductStatus.ON_SALE &&
-            sku.status === ProductStatus.ON_SALE &&
-            product.reviewStatus === ProductReviewStatus.APPROVED,
+          visibleToUser: visibilityIssues.length === 0,
+          visibilityIssues,
+          visibilityStatusText: visibilityStatusText(visibilityIssues),
           coverUrl: assetUrl(product.coverUrl),
           detailImageUrls: jsonStringArray(product.detailImageUrls).map(assetUrl).filter(Boolean),
           storeNames,
@@ -580,6 +641,32 @@ export class ProductService {
       throw new NotFoundException("门店商品不存在");
     }
 
+    return this.merchantProductView(storeSku, 0);
+  }
+
+  private merchantProductView(
+    storeSku: Prisma.StoreSkuGetPayload<{
+      include: {
+        sku: {
+          include: {
+            product: {
+              include: { category: true };
+            };
+          };
+        };
+      };
+    }>,
+    index: number
+  ) {
+    const salePrice = money(storeSku.sku.salePrice);
+    const settlePrice = money(storeSku.settlePrice);
+    const visibilityIssues = productVisibilityIssues({
+      stock: storeSku.stock,
+      productStatus: storeSku.sku.product.status,
+      skuStatus: storeSku.sku.status,
+      reviewStatus: storeSku.sku.product.reviewStatus
+    });
+
     return {
       id: storeSku.id,
       storeSkuId: storeSku.id,
@@ -594,24 +681,19 @@ export class ProductService {
       detailImageUrls: jsonStringArray(storeSku.sku.product.detailImageUrls)
         .map(assetUrl)
         .filter(Boolean),
-      salePrice: money(storeSku.sku.salePrice),
-      settlePrice: money(storeSku.settlePrice),
+      salePrice,
+      settlePrice,
+      grossMargin: margin(salePrice, settlePrice),
       stock: storeSku.stock,
       status: storeSku.sku.status,
       reviewStatus: storeSku.sku.product.reviewStatus,
       reviewStatusText: reviewStatusText(storeSku.sku.product.reviewStatus),
       reviewRemark: storeSku.sku.product.reviewRemark ?? "",
-      visibleToUser:
-        storeSku.stock > 0 &&
-        storeSku.sku.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.reviewStatus === ProductReviewStatus.APPROVED,
-      available:
-        storeSku.stock > 0 &&
-        storeSku.sku.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.status === ProductStatus.ON_SALE &&
-        storeSku.sku.product.reviewStatus === ProductReviewStatus.APPROVED,
-      imageTone: productTone(0)
+      visibleToUser: visibilityIssues.length === 0,
+      available: visibilityIssues.length === 0,
+      visibilityIssues,
+      visibilityStatusText: visibilityStatusText(visibilityIssues),
+      imageTone: productTone(index)
     };
   }
 

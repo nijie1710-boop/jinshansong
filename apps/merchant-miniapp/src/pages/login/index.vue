@@ -14,48 +14,6 @@
       <text class="subtitle">微信授权登录后进入门店工作台，未入驻商家先提交资料等待后台审核。</text>
     </view>
 
-    <view class="card wx-login-card">
-      <view class="wx-profile">
-        <view class="wx-avatar">商</view>
-        <view>
-          <text class="section-title">微信授权登录</text>
-          <text class="muted">绑定入驻申请手机号，通过审核后进入门店后台</text>
-        </view>
-      </view>
-
-      <view class="field">
-        <text class="field-label">入驻手机号</text>
-        <input
-          v-model="loginPhone"
-          adjust-position
-          class="field-input"
-          confirm-type="done"
-          cursor-spacing="20"
-          maxlength="11"
-          placeholder="微信授权失败时手动填写"
-          type="number"
-        />
-      </view>
-
-      <!-- #ifdef MP-WEIXIN -->
-      <button
-        class="primary-button"
-        open-type="getPhoneNumber"
-        :disabled="loading"
-        @getphonenumber="handleLogin"
-      >
-        {{ loading ? "授权中..." : "微信手机号授权登录" }}
-      </button>
-      <!-- #endif -->
-      <!-- #ifndef MP-WEIXIN -->
-      <button class="primary-button" :disabled="loading" @tap="handleLogin">
-        {{ loading ? "授权中..." : "微信手机号授权登录" }}
-      </button>
-      <!-- #endif -->
-      <button class="ghost-button" :disabled="loading" @tap="checkStatus">查看审核状态</button>
-      <text class="agreement">登录即代表同意《商家服务协议》《隐私政策》</text>
-    </view>
-
     <view class="mode-tabs">
       <view class="mode-tab" :class="{ active: mode === 'apply' }" @tap="mode = 'apply'"
         >申请入驻</view
@@ -68,7 +26,7 @@
     <view v-if="mode === 'apply'" class="card form-card">
       <view class="section-head">
         <text class="section-title">门店资料</text>
-        <text class="muted">MVP 审核流</text>
+        <text class="muted">平台审核流</text>
       </view>
 
       <view class="field-grid">
@@ -115,28 +73,37 @@
       <view class="field-grid">
         <view class="field">
           <text class="field-label">城市<text class="required-star">*</text></text>
-          <input
-            v-model="applyForm.city"
-            adjust-position
-            class="field-input"
-            confirm-type="next"
-            cursor-spacing="20"
-            maxlength="12"
-            placeholder="福州市"
-          />
+          <view class="select-field fixed">
+            <text>福州市</text>
+            <text class="select-note">已固定</text>
+          </view>
         </view>
         <view class="field">
           <text class="field-label">区域<text class="required-star">*</text></text>
-          <input
-            v-model="applyForm.district"
-            adjust-position
-            class="field-input"
-            confirm-type="next"
-            cursor-spacing="20"
-            maxlength="16"
-            placeholder="台江区"
-          />
+          <picker
+            mode="selector"
+            :range="fuzhouDistricts"
+            :value="selectedDistrictIndex"
+            @change="handleDistrictPickerChange"
+          >
+            <view class="select-field">
+              <text>{{ applyForm.district || "请选择区域" }}</text>
+              <text class="select-arrow">›</text>
+            </view>
+          </picker>
         </view>
+      </view>
+
+      <view class="district-filter">
+        <button
+          v-for="district in fuzhouDistricts"
+          :key="district"
+          class="district-chip"
+          :class="{ active: applyForm.district === district }"
+          @tap="selectDistrict(district)"
+        >
+          {{ district }}
+        </button>
       </view>
 
       <view class="field">
@@ -217,6 +184,10 @@
       <button class="primary-button" :disabled="loading" @tap="submitApplication">
         {{ loading ? "提交中..." : "提交入驻申请" }}
       </button>
+      <view class="agreement apply-agreement">
+        <text>提交即代表同意</text>
+        <text class="agreement-link" @tap="openLegal('onboarding')">《商家入驻协议》</text>
+      </view>
     </view>
 
     <view v-if="mode === 'login'" class="card form-card">
@@ -251,43 +222,73 @@
         <text>{{ application.reviewRemark }}</text>
       </view>
 
-      <button class="primary-button" :disabled="loading" @tap="handleLogin">
+      <!-- #ifdef MP-WEIXIN -->
+      <button
+        v-if="application?.status !== 'APPROVED'"
+        class="primary-button"
+        open-type="getPhoneNumber"
+        :disabled="loading"
+        @getphonenumber="handleLogin"
+      >
+        {{ loading ? "授权中..." : "微信手机号授权登录" }}
+      </button>
+      <!-- #endif -->
+      <!-- #ifndef MP-WEIXIN -->
+      <button
+        v-if="application?.status !== 'APPROVED'"
+        class="primary-button"
+        :disabled="loading"
+        @tap="handleLogin"
+      >
         {{ loading ? "检查中..." : "微信授权进入商家端" }}
       </button>
-      <button class="ghost-button" :disabled="loading" @tap="checkStatus">查看审核状态</button>
-    </view>
-
-    <view class="card demo-card">
-      <view>
-        <text class="section-title">演示门店</text>
-        <text class="muted">保留用于快速演示完整订单闭环</text>
+      <!-- #endif -->
+      <button
+        v-if="application?.status === 'APPROVED'"
+        class="primary-button"
+        :disabled="loading"
+        @tap="enterApprovedStore"
+      >
+        {{ loading ? "进入中..." : "进入商家端" }}
+      </button>
+      <button class="ghost-button" :disabled="loading" @tap="checkStatus({ autoEnter: true })">
+        查看审核状态
+      </button>
+      <view class="agreement">
+        <text>登录即代表同意</text>
+        <text class="agreement-link" @tap="openLegal('merchant')">《商家服务协议》</text>
+        <text class="agreement-link" @tap="openLegal('privacy')">《隐私政策》</text>
       </view>
-      <button class="ghost-button" :disabled="loading" @tap="handleDemoLogin">一键进入</button>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
+import { computed, reactive, ref } from "vue";
+import { goAfterMerchantLogin, hasMerchantLogin } from "../../services/auth-guard";
 import {
   ApiRequestError,
   api,
   saveMerchantSession,
-  type MerchantSession,
   type StoreApplication
 } from "../../services/api";
+
+const LAST_LOGIN_PHONE_KEY = "jss_merchant_last_phone";
 
 const mode = ref<"apply" | "login">("apply");
 const loading = ref(false);
 const uploading = ref(false);
-const loginPhone = ref("059188000001");
+const loginPhone = ref("");
+const redirectUrl = ref("");
 const application = ref<StoreApplication | null>(null);
+const fuzhouDistricts = ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"];
 const applyForm = reactive({
   applicantName: "",
   applicantPhone: "",
   storeName: "",
   city: "福州市",
-  district: "",
+  district: "台江区",
   address: "",
   businessLicenseNo: "",
   businessLicenseImageUrl: "",
@@ -303,6 +304,31 @@ type PhoneNumberEvent = {
     errMsg?: string;
   };
 };
+
+onLoad((query) => {
+  const redirect = query?.redirect;
+  redirectUrl.value = typeof redirect === "string" ? redirect : "";
+
+  if (hasMerchantLogin()) {
+    setTimeout(() => {
+      goAfterMerchantLogin(redirectUrl.value);
+    }, 0);
+    return;
+  }
+
+  const cachedPhone = uni.getStorageSync(LAST_LOGIN_PHONE_KEY);
+  if (typeof cachedPhone === "string" && cachedPhone.trim()) {
+    loginPhone.value = cachedPhone.trim();
+    mode.value = "login";
+    setTimeout(() => {
+      void checkStatus({ autoEnter: true, silent: true });
+    }, 0);
+  }
+});
+
+const selectedDistrictIndex = computed(() =>
+  Math.max(0, fuzhouDistricts.indexOf(applyForm.district))
+);
 
 function getWechatLoginCode() {
   return new Promise<string>((resolve) => {
@@ -323,6 +349,10 @@ function getWechatLoginCode() {
   });
 }
 
+function openLegal(type: "merchant" | "privacy" | "onboarding") {
+  uni.navigateTo({ url: `/pages/legal/index?type=${type}` });
+}
+
 function validateApplyForm() {
   return (
     applyForm.applicantName.trim() &&
@@ -336,22 +366,17 @@ function validateApplyForm() {
 }
 
 function inferDistrict(address: string) {
-  const knownDistricts = [
-    "鼓楼区",
-    "台江区",
-    "仓山区",
-    "晋安区",
-    "马尾区",
-    "长乐区",
-    "闽侯县",
-    "连江县",
-    "罗源县",
-    "闽清县",
-    "永泰县",
-    "平潭县",
-    "福清市"
-  ];
-  return knownDistricts.find((district) => address.includes(district)) ?? "";
+  return fuzhouDistricts.find((district) => address.includes(district)) ?? "";
+}
+
+function selectDistrict(district: string) {
+  applyForm.city = "福州市";
+  applyForm.district = district;
+}
+
+function handleDistrictPickerChange(event: { detail?: { value?: number | string } }) {
+  const index = Number(event.detail?.value ?? 0);
+  selectDistrict(fuzhouDistricts[index] ?? fuzhouDistricts[0]);
 }
 
 function chooseStoreLocation() {
@@ -370,12 +395,12 @@ function chooseStoreLocation() {
     getLocation({
       type: "gcj02",
       success() {
-        applyForm.city = applyForm.city.trim() || "福州市";
+        applyForm.city = "福州市";
         applyForm.district = applyForm.district.trim() || "台江区";
-        uni.showToast({ title: "已定位，请补充门牌号", icon: "none" });
+        uni.showToast({ title: "已定位，请选择区域并补充门牌号", icon: "none" });
       },
       fail() {
-        uni.showToast({ title: "定位失败，请手动填写", icon: "none" });
+        uni.showToast({ title: "定位失败，请手动选择区域", icon: "none" });
       }
     });
   };
@@ -407,7 +432,7 @@ function chooseStoreLocation() {
       }
       const district = inferDistrict(fullAddress);
       if (district) {
-        applyForm.district = district;
+        selectDistrict(district);
       }
       uni.showToast({ title: "地址已填入", icon: "success" });
     },
@@ -430,12 +455,8 @@ function readImageAsDataUrl(filePath: string) {
     // #ifdef H5
     fetch(filePath)
       .then((response) => response.blob())
-      .then((blob) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      })
+      .then((blob) => compressBlobToDataUrl(blob))
+      .then(resolve)
       .catch(reject);
     // #endif
 
@@ -467,6 +488,39 @@ function readImageAsDataUrl(filePath: string) {
     // #endif
   });
 }
+
+// #ifdef H5
+function compressBlobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1280;
+      const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * ratio));
+      const height = Math.max(1, Math.round(image.height * ratio));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+
+      URL.revokeObjectURL(objectUrl);
+      if (!context) {
+        reject(new Error("图片压缩失败"));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.72));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("图片读取失败"));
+    };
+    image.src = objectUrl;
+  });
+}
+// #endif
 
 function compressImageForUpload(filePath: string) {
   return new Promise<string>((resolve) => {
@@ -587,6 +641,7 @@ async function submitApplication() {
       categoryNote: applyForm.categoryNote.trim()
     });
     loginPhone.value = applyForm.applicantPhone.trim();
+    saveLastLoginPhone(loginPhone.value);
     mode.value = "login";
     uni.showToast({ title: "已提交，等待审核", icon: "success" });
   } catch {
@@ -596,22 +651,87 @@ async function submitApplication() {
   }
 }
 
-async function checkStatus() {
+function saveLastLoginPhone(phone: string) {
+  const normalizedPhone = phone.trim();
+  if (normalizedPhone) {
+    uni.setStorageSync(LAST_LOGIN_PHONE_KEY, normalizedPhone);
+  }
+}
+
+async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = {}) {
   if (!loginPhone.value.trim()) {
-    uni.showToast({ title: "请输入申请手机号", icon: "none" });
+    if (!options.silent) {
+      uni.showToast({ title: "请输入申请手机号", icon: "none" });
+    }
     return;
   }
 
   loading.value = true;
   try {
-    application.value = await api.applicationStatus(loginPhone.value.trim());
+    const phone = loginPhone.value.trim();
+    saveLastLoginPhone(phone);
+    application.value = await api.applicationStatus(phone);
     if (!application.value) {
-      uni.showToast({ title: "未找到申请记录", icon: "none" });
+      if (!options.silent) {
+        uni.showToast({ title: "未找到申请记录", icon: "none" });
+      }
       return;
     }
-    uni.showToast({ title: application.value.statusText, icon: "none" });
+    if (application.value.status === "APPROVED" && options.autoEnter) {
+      await enterApprovedStore({ force: true, silent: options.silent });
+      return;
+    }
+    if (!options.silent) {
+      uni.showToast({ title: application.value.statusText, icon: "none" });
+    }
   } catch {
-    uni.showToast({ title: "查询失败", icon: "none" });
+    if (!options.silent) {
+      uni.showToast({ title: "查询失败", icon: "none" });
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function enterApprovedStore(options: { force?: boolean; silent?: boolean } = {}) {
+  if (loading.value && !options.force && !options.silent) return;
+  const phone = loginPhone.value.trim() || application.value?.applicantPhone?.trim() || "";
+  if (!phone) {
+    if (!options.silent) {
+      uni.showToast({ title: "请输入申请手机号", icon: "none" });
+    }
+    return;
+  }
+
+  loading.value = true;
+  try {
+    saveLastLoginPhone(phone);
+    const result = await api.login(phone);
+    application.value = result.application ?? application.value;
+    if (!result.canLogin || !result.token || !result.store) {
+      if (!options.silent) {
+        uni.showToast({ title: result.message || "暂不能进入商家端", icon: "none" });
+      }
+      return;
+    }
+    saveMerchantSession({ token: result.token, store: result.store });
+    if (!options.silent) {
+      uni.showToast({ title: "已进入商家端", icon: "success" });
+    }
+    setTimeout(
+      () => {
+        goAfterMerchantLogin(redirectUrl.value);
+      },
+      options.silent ? 0 : 250
+    );
+  } catch (error) {
+    const message =
+      error instanceof ApiRequestError || error instanceof Error
+        ? error.message
+        : "进入失败，请检查后端服务";
+    if (!options.silent) {
+      uni.showToast({ title: message, icon: "none" });
+    }
   } finally {
     loading.value = false;
   }
@@ -624,10 +744,14 @@ async function handleLogin(event?: PhoneNumberEvent) {
   try {
     const code = await getWechatLoginCode();
     const phoneCode = event?.detail?.code;
+    const phone = loginPhone.value.trim() || undefined;
+    if (phone) {
+      saveLastLoginPhone(phone);
+    }
     const result = await api.wechatLogin({
       code,
       phoneCode,
-      phone: loginPhone.value.trim() || undefined
+      phone
     });
     application.value = result.application ?? null;
     if (!result.canLogin || !result.token || !result.store) {
@@ -640,7 +764,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
     saveMerchantSession({ token: result.token, store: result.store });
     uni.showToast({ title: "登录成功", icon: "success" });
     setTimeout(() => {
-      uni.switchTab({ url: "/pages/home/index" });
+      goAfterMerchantLogin(redirectUrl.value);
     }, 400);
   } catch (error) {
     const message =
@@ -648,23 +772,6 @@ async function handleLogin(event?: PhoneNumberEvent) {
         ? error.message
         : "登录失败，请检查后端服务";
     uni.showToast({ title: message, icon: "none" });
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function handleDemoLogin() {
-  if (loading.value) return;
-  loading.value = true;
-  try {
-    const session: MerchantSession = await api.mockLogin();
-    saveMerchantSession(session);
-    uni.showToast({ title: "已进入演示门店", icon: "success" });
-    setTimeout(() => {
-      uni.switchTab({ url: "/pages/home/index" });
-    }, 400);
-  } catch {
-    uni.showToast({ title: "演示登录失败", icon: "none" });
   } finally {
     loading.value = false;
   }
@@ -803,9 +910,21 @@ async function handleDemoLogin() {
 }
 
 .agreement {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
   color: #999999;
   text-align: center;
   font-size: 11px;
+  line-height: 1.7;
+}
+
+.agreement-link {
+  color: #ff7a00;
+}
+
+.apply-agreement {
+  margin-top: -4px;
 }
 
 .mode-tabs {
@@ -840,7 +959,6 @@ async function handleDemoLogin() {
 }
 
 .section-head,
-.demo-card,
 .status-card {
   display: flex;
   align-items: center;
@@ -886,7 +1004,8 @@ async function handleDemoLogin() {
 }
 
 .field-input,
-.field-textarea {
+.field-textarea,
+.select-field {
   box-sizing: border-box;
   width: 100%;
   border-radius: 14px;
@@ -898,6 +1017,64 @@ async function handleDemoLogin() {
 .field-input {
   height: 42px;
   padding: 0 12px;
+}
+
+.select-field {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-weight: 700;
+}
+
+.select-field.fixed {
+  color: #666666;
+}
+
+.select-note {
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.select-arrow {
+  color: #ff7a00;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.district-filter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.district-chip {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border-radius: 999px;
+  background: #f7f8fa;
+  color: #666666;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.district-chip.active {
+  background: #fff2e8;
+  color: #ff7a00;
+  font-weight: 900;
+}
+
+.district-chip::after {
+  border: 0;
 }
 
 .field-textarea {
@@ -975,14 +1152,5 @@ async function handleDemoLogin() {
 
 button {
   width: 100%;
-}
-
-.demo-card {
-  flex-direction: row;
-}
-
-.demo-card button {
-  width: 106px;
-  flex: 0 0 106px;
 }
 </style>

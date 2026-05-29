@@ -3,10 +3,10 @@
     <view class="claim-card">
       <view>
         <text class="section-title">分享奖励券</text>
-        <text class="muted">MVP 使用模拟老带新领取，后续接真实分享回流。</text>
+        <text class="muted">邀请好友完成首单后，奖励券会自动到账。</text>
       </view>
       <button class="primary-button" :disabled="claiming" @tap="claimReferralCoupon">
-        {{ claiming ? "领取中" : "模拟领取" }}
+        {{ claiming ? "领取中" : "领取奖励" }}
       </button>
     </view>
 

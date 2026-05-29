@@ -3,13 +3,17 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-const API_BASE_URL = rawBaseUrl.endsWith("/api") ? rawBaseUrl : `${rawBaseUrl}/api`;
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE_URL = rawBaseUrl
+  ? rawBaseUrl.endsWith("/api")
+    ? rawBaseUrl
+    : `${rawBaseUrl}/api`
+  : "/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const [account, setAccount] = useState("admin");
-  const [password, setPassword] = useState("admin123456");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 

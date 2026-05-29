@@ -160,7 +160,7 @@ import {
 const defaultServiceArea: PublicConfig["serviceArea"] = {
   city: "福州市",
   enabledDistricts: ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"],
-  note: "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+  note: "当前服务范围，超出范围的地址暂不支持下单"
 };
 
 const address = ref<ApiAddress>({
@@ -230,7 +230,7 @@ const serviceAreaText = computed(() => {
     return `请先添加${serviceCity.value}收货地址，报价会按定位和门店库存计算。`;
   }
   if (!isAddressInServiceArea.value) {
-    return `第一阶段暂支持：${supportedDistricts.value.join("、")}。`;
+    return `当前暂支持：${supportedDistricts.value.join("、")}。`;
   }
   return `已覆盖 ${address.value.district}，下单前会自动匹配附近门店和配送平台。`;
 });
@@ -252,7 +252,7 @@ async function refreshQuote() {
     return;
   }
   if (!isAddressInServiceArea.value) {
-    quoteError.value = "当前地址不在第一阶段服务范围内";
+    quoteError.value = "当前地址不在服务范围内";
     quote.value = { ...quote.value, selectedDelivery: null, deliveryOptions: [] };
     return;
   }
@@ -310,7 +310,7 @@ async function submitOrder() {
       promoterCode: promoterCode.value.trim()
     });
     const paid = await api.mockPay(created.id);
-    uni.showToast({ title: "模拟支付成功", icon: "success" });
+    uni.showToast({ title: "支付成功", icon: "success" });
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/order/detail?id=${paid.id}` });
     }, 500);

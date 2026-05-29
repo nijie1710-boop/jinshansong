@@ -5,7 +5,7 @@ export default async function SettlementsPage() {
   const settlementPreview = await getSettlementPreview();
 
   return (
-    <PageShell title="结算管理" description="第一阶段只做模拟结算，不触发真实打款。">
+    <PageShell title="结算管理" description="汇总门店、骑手和推广结算数据，正式打款前由财务复核。">
       <div className="grid gap-4 md:grid-cols-4">
         <Panel>
           <div className="text-sm text-[#666666]">门店待结算</div>
@@ -67,7 +67,7 @@ export default async function SettlementsPage() {
               {settlementPreview.settlements.length === 0 ? (
                 <tr>
                   <td className="px-4 py-8 text-center text-[#666666]" colSpan={6}>
-                    暂无可结算订单。完成一笔订单后会自动生成模拟结算单。
+                    暂无可结算订单。完成一笔订单后会自动生成结算汇总。
                   </td>
                 </tr>
               ) : null}

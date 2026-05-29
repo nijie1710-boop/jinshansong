@@ -183,7 +183,7 @@ export default async function StoresPage() {
                 <div>
                   <div className="text-sm font-semibold">配送门店绑定</div>
                   <div className="mt-1 text-xs text-[#666666]">
-                    现在可先用演示门店跑通；推广门店后，每个真实门店都需要单独填写平台门店/商户 ID。
+                    现在可先用试用门店跑通；推广门店后，每个真实门店都需要单独填写平台门店/商户 ID。
                   </div>
                 </div>
                 {deliveryConfigs(store).map((config) => (
@@ -206,7 +206,7 @@ export default async function StoresPage() {
                       </label>
                       <div className="flex flex-wrap gap-2">
                         <StatusPill tone={config.readiness?.mode === "http" ? "green" : "orange"}>
-                          {config.readiness?.mode === "http" ? "正式模式" : "演示模式"}
+                          {config.readiness?.mode === "http" ? "正式模式" : "预览联调"}
                         </StatusPill>
                         <StatusPill tone={deliveryReadinessTone(config.readiness?.status)}>
                           {config.readiness?.statusText ?? "待配置"}

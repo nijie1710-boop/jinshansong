@@ -1,6 +1,13 @@
 <script lang="ts">
+import { installUserAuthGuard } from "./services/auth-guard";
+
 export default {
-  onLaunch() {}
+  onLaunch() {
+    installUserAuthGuard();
+  },
+  onShow() {
+    installUserAuthGuard();
+  }
 };
 </script>
 

@@ -1,6 +1,12 @@
 {
   "pages": [
     {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "微信登录"
+      }
+    },
+    {
       "path": "pages/home/index",
       "style": {
         "navigationBarTitleText": "商家首页",
@@ -48,9 +54,15 @@
       }
     },
     {
-      "path": "pages/login/index",
+      "path": "pages/support/index",
       "style": {
-        "navigationBarTitleText": "微信登录"
+        "navigationBarTitleText": "平台支持"
+      }
+    },
+    {
+      "path": "pages/legal/index",
+      "style": {
+        "navigationBarTitleText": "协议与隐私"
       }
     }
   ],

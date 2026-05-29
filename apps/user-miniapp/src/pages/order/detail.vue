@@ -19,7 +19,7 @@
     </view>
 
     <view class="card section">
-        <text class="section-title">门店信息</text>
+      <text class="section-title">门店信息</text>
       <view class="store-row">
         <view>
           <text class="store-name">{{ order.storeName }}</text>
@@ -117,12 +117,13 @@ const activeStepIndex = computed(() => {
 
 const statusHint = computed(() => {
   const status = order.value.statusCode;
-  if (status === "WAITING_STORE_ACCEPT" || status === "TRANSFERRED") return "系统已匹配门店，等待商家接单";
+  if (status === "WAITING_STORE_ACCEPT" || status === "TRANSFERRED")
+    return "系统已匹配门店，等待商家接单";
   if (status === "STORE_ACCEPTED") return "商家已接单，正在备货";
   if (status === "READY_FOR_PICKUP") return "备货已完成，等待骑手取货";
   if (status === "RIDER_PICKED_UP" || status === "DELIVERING") return "骑手正在配送，请耐心等待";
   if (status === "COMPLETED") return "订单已送达，感谢使用金闪送";
-  if (status === "REFUNDED") return "订单已模拟退款";
+  if (status === "REFUNDED") return "订单已退款";
   return "订单处理中";
 });
 
@@ -175,7 +176,7 @@ function makePhoneCall(phoneNumber: string, emptyTitle: string) {
   uni.makePhoneCall({
     phoneNumber,
     fail() {
-      uni.showToast({ title: "H5 预览无法拨号，请在微信内测试", icon: "none" });
+      uni.showToast({ title: "请在微信内拨号联系", icon: "none" });
     }
   });
 }

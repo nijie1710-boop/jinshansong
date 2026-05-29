@@ -33,7 +33,7 @@
         <view>
           <text class="setting-title">{{ provider.providerName }}</text>
           <text class="muted">
-            {{ provider.mode === "http" ? "正式平台" : "演示模式" }} ·
+            {{ provider.mode === "http" ? "正式平台" : "预览联调" }} ·
             {{ provider.providerShopId || "未绑定门店ID" }}
           </text>
           <text v-if="provider.missing.length" class="missing">
@@ -63,6 +63,7 @@
     </view>
 
     <button class="primary-button" @tap="goProductManage">管理门店商品</button>
+    <button class="ghost-button" @tap="goSupport">平台支持与规则</button>
     <button class="ghost-button" @tap="goLogin">切换登录门店</button>
   </view>
 </template>
@@ -118,7 +119,7 @@ const switches = computed(() => [
     key: "voiceReminderSwitch" as const,
     title: "语音提醒开关",
     value: store.value.voiceReminderSwitch,
-    desc: store.value.voiceReminderSwitch ? "新订单提示音模拟开启" : "新订单提示音已关闭"
+    desc: store.value.voiceReminderSwitch ? "新订单提示音已开启" : "新订单提示音已关闭"
   }
 ]);
 
@@ -128,6 +129,10 @@ function goLogin() {
 
 function goProductManage() {
   uni.switchTab({ url: "/pages/product/manage" });
+}
+
+function goSupport() {
+  uni.navigateTo({ url: "/pages/support/index" });
 }
 
 function syncStore(storeData: MerchantStore) {

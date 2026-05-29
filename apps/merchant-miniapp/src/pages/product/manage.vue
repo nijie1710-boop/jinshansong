@@ -83,9 +83,28 @@
       <view class="upload-readiness-card">
         <text class="upload-readiness-title">图片上传提示</text>
         <text
-          >本地预览可先使用 localhost 图片；微信真机和正式版需要 HTTPS 图片域名，后续接入
-          COS/OSS/CDN 后即可正常显示。</text
+          >当前验收环境会把图片保存到本地后端并直接预览；正式版需切换 HTTPS 图片域名后再提交审核。</text
         >
+      </view>
+
+      <view class="readiness-card">
+        <view class="readiness-head">
+          <text class="upload-readiness-title">提交前检查</text>
+          <text class="gross-margin" :class="{ danger: isGrossMarginNegative }">
+            单件毛利 ¥{{ grossMarginPreviewText }}
+          </text>
+        </view>
+        <view class="readiness-grid">
+          <view
+            v-for="item in formReadinessItems"
+            :key="item.label"
+            class="readiness-item"
+            :class="{ ok: item.ok }"
+          >
+            <text>{{ item.ok ? "✓" : "!" }}</text>
+            <text>{{ item.label }}</text>
+          </view>
+        </view>
       </view>
 
       <view class="field-label">商品主图</view>
@@ -274,9 +293,13 @@
           <view class="price-line">
             <text class="price">¥{{ product.salePrice }}</text>
             <text class="muted">结算 ¥{{ product.settlePrice }}</text>
+            <text class="muted">毛利 ¥{{ product.grossMargin ?? "-" }}</text>
           </view>
           <text class="visibility-line" :class="{ hidden: !product.visibleToUser }">
             {{ product.visibleToUser ? "用户端已可见" : "用户端暂不可见" }}
+          </text>
+          <text class="visibility-reason">
+            {{ product.visibilityStatusText || "请确认审核、库存和上下架状态" }}
           </text>
           <text class="muted">详情图 {{ product.detailImageUrls.length }} 张</text>
           <text v-if="product.reviewRemark" class="review-remark">
@@ -502,22 +525,32 @@ const visibleCount = computed(
   () => products.value.filter((product) => product.visibleToUser).length
 );
 const hasMerchantAccess = computed(() => Boolean(merchantStore.value?.code && getMerchantToken()));
+const grossMarginPreview = computed(() => {
+  const salePrice = Number(form.salePrice);
+  const settlePrice = Number(form.settlePrice || form.salePrice);
+  if (!Number.isFinite(salePrice) || !Number.isFinite(settlePrice)) {
+    return 0;
+  }
+  return Math.round((salePrice - settlePrice) * 100) / 100;
+});
+const isGrossMarginNegative = computed(() => grossMarginPreview.value < 0);
+const grossMarginPreviewText = computed(() => grossMarginPreview.value.toFixed(2));
+const formReadinessItems = computed(() => [
+  { label: "商品名称", ok: Boolean(form.name.trim()) },
+  { label: "主图", ok: Boolean(form.coverUrl) },
+  { label: "销售价", ok: Number(form.salePrice) > 0 },
+  { label: "结算价", ok: Number(form.settlePrice || form.salePrice) > 0 },
+  { label: "库存", ok: Number(form.stock) > 0 },
+  { label: "商品说明", ok: Boolean(form.description.trim()) }
+]);
 
 function displayImageUrl(url?: string) {
   const value = (url || "").trim();
-  // #ifdef MP-WEIXIN
-  if (value.startsWith("http://")) {
-    return "";
-  }
-  // #endif
   return value;
 }
 
 function isHttpImageBlocked(url?: string) {
-  const value = (url || "").trim();
-  // #ifdef MP-WEIXIN
-  return value.startsWith("http://");
-  // #endif
+  void url;
   return false;
 }
 
@@ -919,6 +952,14 @@ async function submitProduct() {
     uni.showToast({ title: "销售价需大于0", icon: "none" });
     return;
   }
+  if (!Number.isFinite(settlePrice) || settlePrice <= 0) {
+    uni.showToast({ title: "结算价需大于0", icon: "none" });
+    return;
+  }
+  if (settlePrice > salePrice) {
+    uni.showToast({ title: "结算价不能高于销售价", icon: "none" });
+    return;
+  }
   if (!Number.isFinite(stock) || stock < 0) {
     uni.showToast({ title: "库存格式不正确", icon: "none" });
     return;
@@ -950,11 +991,30 @@ async function submitProduct() {
 async function saveProduct(product: MerchantProduct) {
   const draft = drafts.value[product.storeSkuId];
   if (!draft) return;
+  const stock = Number(draft.stock);
+  const salePrice = Number(draft.salePrice);
+  const settlePrice = Number(draft.settlePrice);
+  if (!Number.isFinite(stock) || stock < 0) {
+    uni.showToast({ title: "库存格式不正确", icon: "none" });
+    return;
+  }
+  if (!Number.isFinite(salePrice) || salePrice <= 0) {
+    uni.showToast({ title: "销售价需大于0", icon: "none" });
+    return;
+  }
+  if (!Number.isFinite(settlePrice) || settlePrice <= 0) {
+    uni.showToast({ title: "结算价需大于0", icon: "none" });
+    return;
+  }
+  if (settlePrice > salePrice) {
+    uni.showToast({ title: "结算价不能高于销售价", icon: "none" });
+    return;
+  }
   try {
     const updated = await api.updateProduct(product.storeSkuId, {
-      stock: Number(draft.stock),
-      salePrice: Number(draft.salePrice),
-      settlePrice: Number(draft.settlePrice),
+      stock,
+      salePrice,
+      settlePrice,
       description: product.description,
       coverUrl: product.coverUrl,
       detailImageUrls: product.detailImageUrls
@@ -1288,6 +1348,61 @@ onPullDownRefresh(() => {
   font-weight: 900;
 }
 
+.readiness-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 12px;
+  background: #f7f8fa;
+}
+
+.readiness-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gross-margin {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #e9fbf2;
+  color: #0f9f6e;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.gross-margin.danger {
+  background: #fff0f0;
+  color: #ff3b30;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.readiness-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 6px 4px;
+  background: #ffffff;
+  color: #999999;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.readiness-item.ok {
+  background: #fff2e8;
+  color: #ff7a00;
+}
+
 .blocked-image-note,
 .blocked-detail-note {
   display: flex;
@@ -1545,6 +1660,12 @@ onPullDownRefresh(() => {
 
 .visibility-line.hidden {
   color: #ff7a00;
+}
+
+.visibility-reason {
+  color: #999999;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .edit-grid {

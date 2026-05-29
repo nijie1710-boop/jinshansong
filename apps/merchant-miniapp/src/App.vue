@@ -1,6 +1,13 @@
 <script lang="ts">
+import { installMerchantAuthGuard } from "./services/auth-guard";
+
 export default {
-  onLaunch() {}
+  onLaunch() {
+    installMerchantAuthGuard();
+  },
+  onShow() {
+    installMerchantAuthGuard();
+  }
 };
 </script>
 

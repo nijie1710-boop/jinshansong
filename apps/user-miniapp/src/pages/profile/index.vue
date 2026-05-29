@@ -45,7 +45,7 @@ const menus: MenuItem[] = [
   { title: "地址管理", url: "/pages/address/list" },
   { title: "优惠券", url: "/pages/coupon/index" },
   { title: "分享有礼", url: "/pages/share/index" },
-  { title: "客服与售后" }
+  { title: "客服与售后", url: "/pages/support/index" }
 ];
 const profile = ref<UserProfile | null>(getCachedUserProfile());
 const profileStats = ref({
@@ -75,7 +75,7 @@ function handleMenu(item: MenuItem) {
     return;
   }
 
-  uni.showToast({ title: "客服功能将在正式版接入", icon: "none" });
+  uni.navigateTo({ url: "/pages/support/index" });
 }
 
 function referralCoupons(coupons: ApiCoupon[]) {

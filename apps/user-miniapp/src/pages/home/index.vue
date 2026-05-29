@@ -62,7 +62,12 @@
         <text class="muted">附近品胜门店</text>
       </view>
       <view class="category-grid">
-        <view v-for="category in categories" :key="category.id" class="category-item">
+        <view
+          v-for="category in categories"
+          :key="category.id"
+          class="category-item"
+          @tap="openCategory(category.id)"
+        >
           <view class="category-icon">{{ category.icon }}</view>
           <text>{{ category.name }}</text>
         </view>
@@ -275,7 +280,7 @@ function chooseHomeLocation() {
         uni.showToast({ title: "已记录当前位置", icon: "none" });
       },
       fail() {
-        uni.showToast({ title: "H5 预览请手动验收，微信内需授权定位", icon: "none" });
+        uni.showToast({ title: "定位不可用，请手动选择区域", icon: "none" });
       }
     });
   };
@@ -314,6 +319,11 @@ function clearSearch() {
 
 function searchProducts() {
   void loadHomeData(searchKeyword.value);
+}
+
+function openCategory(categoryId: string) {
+  uni.switchTab({ url: "/pages/category/index" });
+  uni.setStorageSync("jss_active_category_id", categoryId);
 }
 
 function openProduct(id: string) {

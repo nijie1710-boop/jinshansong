@@ -1,6 +1,12 @@
 {
   "pages": [
     {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "微信登录"
+      }
+    },
+    {
       "path": "pages/home/index",
       "style": {
         "navigationBarTitleText": "金闪送",
@@ -74,9 +80,15 @@
       }
     },
     {
-      "path": "pages/login/index",
+      "path": "pages/support/index",
       "style": {
-        "navigationBarTitleText": "微信登录"
+        "navigationBarTitleText": "客服与售后"
+      }
+    },
+    {
+      "path": "pages/legal/index",
+      "style": {
+        "navigationBarTitleText": "协议与隐私"
       }
     }
   ],

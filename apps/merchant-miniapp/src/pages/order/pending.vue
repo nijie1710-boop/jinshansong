@@ -15,7 +15,7 @@
 
     <view v-if="orders.length === 0" class="empty-card">
       <text class="section-title">暂无待接单</text>
-      <text class="muted">完成一笔用户端模拟支付后，这里会实时展示待接单订单</text>
+      <text class="muted">用户完成支付后，这里会实时展示待接单订单</text>
     </view>
 
     <view v-for="order in orders" :key="order.id" class="pending-card">
@@ -78,9 +78,7 @@ let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let pendingSnapshotReady = false;
 let lastPendingOrderIds = new Set<string>();
 const voiceReminderText = computed(() =>
-  store.value?.voiceReminderSwitch
-    ? "模拟开启，收到新单时播放提示音"
-    : "已关闭，新订单只在列表中展示"
+  store.value?.voiceReminderSwitch ? "已开启，收到新单时播放提示音" : "已关闭，新订单只在列表中展示"
 );
 
 function formatCountdown(seconds: number) {

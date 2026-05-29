@@ -30,9 +30,9 @@ export default async function OrdersPage() {
             <div className="mt-1 text-xl font-semibold">42分钟</div>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-xl ring-1 ring-black/5">
+        <div className="overflow-x-auto rounded-2xl ring-1 ring-black/5">
           <table className="w-full min-w-[1040px] text-left text-sm">
-            <thead className="bg-[#F7F8FA] text-[#666666]">
+            <thead className="sticky top-0 bg-[#F7F8FA] text-[#666666]">
               <tr>
                 <th className="px-4 py-3 font-medium">订单号</th>
                 <th className="px-4 py-3 font-medium">用户</th>
@@ -46,7 +46,12 @@ export default async function OrdersPage() {
             </thead>
             <tbody className="divide-y divide-black/5">
               {orders.map((order) => (
-                <tr key={order.orderNo} className={order.netProfit < 0 ? "bg-red-50/60" : ""}>
+                <tr
+                  key={order.orderNo}
+                  className={`transition hover:bg-[#FFF7ED] ${
+                    order.netProfit < 0 ? "bg-red-50/60" : ""
+                  }`}
+                >
                   <td className="px-4 py-4 font-medium">
                     <Link className="text-[#FF7A00] hover:underline" href={`/orders/${order.id}`}>
                       {order.orderNo}

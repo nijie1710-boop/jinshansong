@@ -85,7 +85,7 @@
 
     <view v-if="hasMerchantAccess && orders.length === 0" class="empty-card">
       <text class="section-title">暂无待接单</text>
-      <text class="muted">用户完成模拟支付后，新订单会出现在这里</text>
+      <text class="muted">用户完成支付后，新订单会出现在这里</text>
     </view>
 
     <view v-for="order in hasMerchantAccess ? orders : []" :key="order.id" class="order-card">
@@ -154,9 +154,7 @@ const storeStatusText = computed(() => {
   }
   return acceptingOrders.value ? "接单中" : "暂停接单";
 });
-const voiceReminderText = computed(() =>
-  store.value?.voiceReminderSwitch ? "模拟开启" : "已关闭"
-);
+const voiceReminderText = computed(() => (store.value?.voiceReminderSwitch ? "已开启" : "已关闭"));
 const deliveryStatusText = computed(() => store.value?.deliverySummary?.statusText ?? "配送未检查");
 const deliveryStatusClass = computed(() => {
   const status = store.value?.deliverySummary?.status;
@@ -169,7 +167,7 @@ const deliveryHint = computed(() => {
     return "已具备真实平台发单条件";
   }
   if (store.value?.deliverySummary?.status === "MOCK_ONLY") {
-    return "当前可演示接单；正式推广门店后由平台后台完成配送绑定";
+    return "当前可接单联调；配送平台绑定完成后可发起正式配送";
   }
   return "请联系平台后台完成配送平台绑定";
 });

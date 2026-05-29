@@ -181,6 +181,7 @@ export interface MerchantProduct {
   description: string;
   salePrice: number;
   settlePrice: number;
+  grossMargin?: number;
   stock: number;
   status: "ON_SALE" | "OFF_SALE";
   reviewStatus: "PENDING" | "APPROVED" | "REJECTED";
@@ -188,6 +189,8 @@ export interface MerchantProduct {
   reviewRemark: string;
   visibleToUser: boolean;
   available: boolean;
+  visibilityIssues?: string[];
+  visibilityStatusText?: string;
   coverUrl: string;
   detailImageUrls: string[];
   imageTone: string;

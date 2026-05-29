@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jss-prod-postgres
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jinshansong}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-jinshansong}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jinshansong} -d ${POSTGRES_DB:-jinshansong}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: jss-prod-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/api.Dockerfile
+    container_name: jss-prod-api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-lc", "pnpm db:deploy && pnpm --filter @jinshansong/api start"]
+    volumes:
+      - uploads_prod_data:/app/uploads
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  admin:
+    build:
+      context: .
+      dockerfile: infra/admin.Dockerfile
+    container_name: jss-prod-admin
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: jss-prod-nginx
+    restart: unless-stopped
+    profiles:
+      - proxy
+    env_file:
+      - .env.production
+    depends_on:
+      api:
+        condition: service_healthy
+      admin:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/jinshansong.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - uploads_prod_data:/var/www/jinshansong/uploads:ro
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  uploads_prod_data:

@@ -6,6 +6,7 @@ import {
   saveDeliveryConfig,
   saveFinanceConfig,
   saveOrderFlowConfig,
+  savePaymentConfig,
   saveServiceAreaConfig
 } from "./actions";
 
@@ -185,8 +186,37 @@ function SelectField({
         defaultValue={defaultValue}
         name={name}
       >
-        <option value="mock">Mock 聚合平台</option>
+        <option value="mock">预览聚合平台</option>
         <option value="http">HTTP 正式平台</option>
+      </select>
+    </label>
+  );
+}
+
+function OptionSelectField({
+  label,
+  name,
+  defaultValue,
+  options
+}: {
+  label: string;
+  name: string;
+  defaultValue: string;
+  options: { label: string; value: string }[];
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm text-[#666666]">{label}</span>
+      <select
+        className="mt-1 w-full rounded-xl bg-[#F7F8FA] px-3 py-2 text-base font-semibold outline-none ring-1 ring-black/5"
+        defaultValue={defaultValue}
+        name={name}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
       </select>
     </label>
   );
@@ -234,6 +264,7 @@ export default async function ConfigsPage() {
   const configs = await getSystemConfigs();
   const delivery = configValue(configs, "delivery");
   const serviceArea = configValue(configs, "service_area");
+  const payment = configValue(configs, "payment");
   const deliveryAggregation = configValue(configs, "delivery_aggregation");
   const providers = providerConfigs(deliveryAggregation);
   const commission = configValue(configs, "commission");
@@ -295,13 +326,71 @@ export default async function ConfigsPage() {
               defaultValue={stringValue(
                 serviceArea,
                 "note",
-                "第一阶段 MVP 服务范围，超出范围的地址不允许下单"
+                "当前服务范围，超出范围的地址暂不支持下单"
               )}
               label="运营备注"
               name="note"
             />
             <p className="text-sm text-[#666666]">
               用户端地址、确认订单报价和后端下单都会校验该范围；后续可扩展到地图围栏和门店半径。
+            </p>
+            <SaveButton />
+          </form>
+        </Panel>
+
+        <Panel title="支付配置">
+          <form action={savePaymentConfig} className="space-y-4">
+            <div className="rounded-2xl bg-[#FFF7ED] p-4 text-sm text-[#8A4B13]">
+              当前仍为模拟支付闭环。切换微信支付前，需要微信商户号、API v3
+              key、商户证书序列号、私钥文件和 HTTPS 回调地址同时就绪。
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <OptionSelectField
+                defaultValue={stringValue(payment, "mode", "mock")}
+                label="支付模式"
+                name="mode"
+                options={[
+                  { label: "Mock 模拟支付", value: "mock" },
+                  { label: "微信小程序支付", value: "wechat" }
+                ]}
+              />
+              <OptionSelectField
+                defaultValue={stringValue(payment, "userPayChannel", "MOCK")}
+                label="用户端支付通道"
+                name="userPayChannel"
+                options={[
+                  { label: "Mock 通道", value: "MOCK" },
+                  { label: "微信小程序支付", value: "WECHAT_MINIPROGRAM" }
+                ]}
+              />
+              <OptionSelectField
+                defaultValue={stringValue(payment, "refundMode", "mock")}
+                label="退款模式"
+                name="refundMode"
+                options={[
+                  { label: "Mock 模拟退款", value: "mock" },
+                  { label: "微信退款", value: "wechat" }
+                ]}
+              />
+              <TextField
+                defaultValue={stringValue(payment, "notifyUrl", "")}
+                label="支付回调地址"
+                name="notifyUrl"
+                placeholder="https://api.example.com/api/payments/wechat/notify"
+              />
+              <TextField
+                defaultValue={stringValue(payment, "note", "真实支付前继续使用模拟支付")}
+                label="运营备注"
+                name="note"
+              />
+            </div>
+            <ToggleField
+              defaultChecked={boolValue(payment, "requirePaidBeforeDispatch", true)}
+              label="支付成功后才允许商家接单和呼叫配送"
+              name="requirePaidBeforeDispatch"
+            />
+            <p className="text-sm text-[#666666]">
+              敏感密钥不保存在后台配置页，正式密钥只放服务器环境变量；该面板用于运营侧确认当前支付策略。
             </p>
             <SaveButton />
           </form>
@@ -373,13 +462,13 @@ export default async function ConfigsPage() {
                     />
                     <NumberField
                       defaultValue={provider.mockBaseFee}
-                      label="Mock 成本"
+                      label="预览成本"
                       name={`${provider.code}_mockBaseFee`}
                       suffix="元"
                     />
                     <NumberField
                       defaultValue={provider.mockEtaMinutes}
-                      label="Mock 时效"
+                      label="预览时效"
                       name={`${provider.code}_mockEtaMinutes`}
                       suffix="分钟"
                     />
@@ -387,7 +476,7 @@ export default async function ConfigsPage() {
                       defaultValue={provider.endpoint}
                       label="接口地址"
                       name={`${provider.code}_endpoint`}
-                      placeholder="测试/正式 API endpoint"
+                      placeholder="联调/正式 API endpoint"
                     />
                     <TextField
                       defaultValue={provider.appKey}
@@ -421,7 +510,7 @@ export default async function ConfigsPage() {
             </div>
             <p className="text-sm text-[#666666]">
               确认订单页会展示各平台预估成本和时效；商家接单后按策略发单。没有真实门店入驻前可保持
-              Mock 演示；正式推广门店后，需要在“门店管理”里给每家门店单独绑定平台门店/商户 ID。
+              预览联调；正式推广门店后，需要在“门店管理”里给每家门店单独绑定平台门店/商户 ID。
             </p>
             <SaveButton />
           </form>

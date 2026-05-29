@@ -40,6 +40,13 @@
         <text>{{ storeNamesText }}</text>
       </view>
       <view class="info-row">
+        <text class="label">库存</text>
+        <text
+          >附近 {{ product.storeCount || product.storeNames?.length || 1 }} 家门店现货
+          {{ product.stock }} 件</text
+        >
+      </view>
+      <view class="info-row">
         <text class="label">服务</text>
         <text>正品保障 · 售后无忧 · 缺货秒退</text>
       </view>
@@ -85,8 +92,8 @@
     </view>
 
     <view class="mobile-fixed-bottom bottom-bar">
-      <button class="ghost-button">加入购物车</button>
-      <button class="primary-button" @tap="buyNow">立即购买</button>
+      <button class="ghost-button" @tap="addToCart">加入购物车</button>
+      <button class="primary-button" :disabled="product.stock <= 0" @tap="buyNow">立即购买</button>
     </view>
   </view>
 </template>
@@ -96,6 +103,7 @@ import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { api, type ApiProduct } from "../../services/api";
 
+const CART_STORAGE_KEY = "jss_cart_items";
 const emptyProduct: ApiProduct = {
   id: "",
   skuId: "",
@@ -108,6 +116,7 @@ const emptyProduct: ApiProduct = {
   settlePrice: 0,
   sales: 0,
   stock: 0,
+  storeCount: 0,
   tags: [],
   specs: [],
   color: "默认",
@@ -153,6 +162,30 @@ function buyNow() {
   }
 
   uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
+}
+
+function addToCart() {
+  const skuId = product.value.skuId || product.value.skus?.[0]?.id;
+  if (!skuId || product.value.stock <= 0) {
+    uni.showToast({ title: "商品暂无库存", icon: "none" });
+    return;
+  }
+
+  const cached = uni.getStorageSync(CART_STORAGE_KEY);
+  const items = Array.isArray(cached) ? cached : [];
+  const nextItems = [
+    {
+      skuId,
+      productId: product.value.id,
+      name: product.value.name,
+      price: product.value.price,
+      quantity: 1,
+      addedAt: new Date().toISOString()
+    },
+    ...items.filter((item) => item?.skuId !== skuId)
+  ].slice(0, 20);
+  uni.setStorageSync(CART_STORAGE_KEY, nextItems);
+  uni.showToast({ title: "已加入购物车", icon: "success" });
 }
 
 onLoad(async (query) => {

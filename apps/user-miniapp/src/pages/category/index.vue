@@ -83,19 +83,20 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { onPullDownRefresh } from "@dcloudio/uni-app";
+import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api, type ApiCategory, type ApiProduct } from "../../services/api";
 
 const categories = ref<ApiCategory[]>([]);
 const products = ref<ApiProduct[]>([]);
 const activeCategoryId = ref(categories.value[0]?.id ?? "");
 const keyword = ref("");
+const ACTIVE_CATEGORY_STORAGE_KEY = "jss_active_category_id";
 
 const filteredProducts = computed(() => {
   const categoryMatched = activeCategoryId.value
     ? products.value.filter((product) => product.categoryId === activeCategoryId.value)
     : products.value;
-  const baseList = categoryMatched.length > 0 ? categoryMatched : products.value;
+  const baseList = activeCategoryId.value ? categoryMatched : products.value;
   const normalizedKeyword = keyword.value.trim().toLowerCase();
 
   if (!normalizedKeyword) {
@@ -157,6 +158,17 @@ function buyProduct(skuId: string) {
   uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
 }
 
+function applyStoredCategory() {
+  const storedCategoryId = uni.getStorageSync(ACTIVE_CATEGORY_STORAGE_KEY);
+  if (
+    typeof storedCategoryId === "string" &&
+    categories.value.some((category) => category.id === storedCategoryId)
+  ) {
+    activeCategoryId.value = storedCategoryId;
+    uni.removeStorageSync(ACTIVE_CATEGORY_STORAGE_KEY);
+  }
+}
+
 async function loadCategoryData(searchKeyword = "") {
   try {
     const [categoryData, productData] = await Promise.all([
@@ -165,7 +177,10 @@ async function loadCategoryData(searchKeyword = "") {
     ]);
     categories.value = categoryData;
     products.value = productData;
-    activeCategoryId.value = categoryData[0]?.id ?? "";
+    if (!categoryData.some((category) => category.id === activeCategoryId.value)) {
+      activeCategoryId.value = categoryData[0]?.id ?? "";
+    }
+    applyStoredCategory();
   } catch {
     categories.value = [];
     products.value = [];
@@ -175,6 +190,7 @@ async function loadCategoryData(searchKeyword = "") {
 }
 
 onMounted(loadCategoryData);
+onShow(applyStoredCategory);
 
 onPullDownRefresh(() => {
   void loadCategoryData(keyword.value).finally(() => {

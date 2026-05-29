@@ -593,6 +593,31 @@ async function main() {
       }
     }),
     prisma.systemConfig.upsert({
+      where: { key: "payment" },
+      update: {
+        value: {
+          mode: "mock",
+          userPayChannel: "MOCK",
+          refundMode: "mock",
+          notifyUrl: "",
+          requirePaidBeforeDispatch: true,
+          note: "第一阶段使用模拟支付；微信支付商户号和证书到位后切换"
+        }
+      },
+      create: {
+        key: "payment",
+        value: {
+          mode: "mock",
+          userPayChannel: "MOCK",
+          refundMode: "mock",
+          notifyUrl: "",
+          requirePaidBeforeDispatch: true,
+          note: "第一阶段使用模拟支付；微信支付商户号和证书到位后切换"
+        },
+        remark: "支付通道配置；真实扣款前使用 mock，微信商户号和证书到位后切换"
+      }
+    }),
+    prisma.systemConfig.upsert({
       where: { key: "delivery_aggregation" },
       update: {
         value: {

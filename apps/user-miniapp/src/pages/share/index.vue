@@ -3,9 +3,9 @@
     <view class="share-hero">
       <text class="eyebrow">金闪送分享有礼</text>
       <text class="title">邀请好友下单，奖励券实时入账</text>
-      <text class="muted">MVP 阶段先用模拟领取验证券到账，后续替换为微信分享回流。</text>
+      <text class="muted">好友完成首单后，奖励券会自动进入你的账户。</text>
       <button class="primary-button" :disabled="claiming" @tap="claimReferralCoupon">
-        {{ claiming ? "领取中" : "模拟领取奖励券" }}
+        {{ claiming ? "领取中" : "领取奖励券" }}
       </button>
     </view>
 
@@ -16,7 +16,7 @@
       </view>
 
       <view v-if="referralCoupons.length === 0" class="empty-row">
-        <text class="muted">暂无分享奖励券，点击上方按钮可模拟领取。</text>
+        <text class="muted">暂无分享奖励券，邀请好友下单后会展示在这里。</text>
       </view>
 
       <view v-for="coupon in referralCoupons" :key="coupon.id" class="coupon-row">

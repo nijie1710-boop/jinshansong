@@ -97,6 +97,11 @@ export default async function ProductsPage() {
                 <StatusPill tone={(product.detailImageUrls?.length ?? 0) > 0 ? "green" : "gray"}>
                   详情图 {product.detailImageUrls?.length ?? 0}
                 </StatusPill>
+                {(product.visibilityIssues ?? []).map((issue) => (
+                  <StatusPill key={issue} tone="orange">
+                    {issue}
+                  </StatusPill>
+                ))}
               </div>
               <div className="mt-2 text-xs text-[#999999]">
                 详情图 {product.detailImageUrls?.length ?? 0} 张 · 更新{" "}
@@ -110,10 +115,20 @@ export default async function ProductsPage() {
                   <div className="text-xs text-[#666666]">
                     结算价 {formatCurrency(product.settlePrice)}
                   </div>
+                  <div
+                    className={`text-xs font-semibold ${
+                      (product.grossMargin ?? 0) < 0 ? "text-red-600" : "text-[#0F9F6E]"
+                    }`}
+                  >
+                    单件毛利 {formatCurrency(product.grossMargin ?? 0)}
+                  </div>
                 </div>
                 <StatusPill tone={product.visibleToUser ? "green" : "gray"}>
                   {product.visibleToUser ? "用户端可见" : "用户端不可见"}
                 </StatusPill>
+              </div>
+              <div className="mt-3 rounded-xl bg-[#FFF7ED] px-3 py-2 text-xs text-[#8A4B13]">
+                {product.visibilityStatusText || "请确认审核、库存和上下架状态"}
               </div>
               {product.reviewRemark ? (
                 <div className="mt-3 rounded-xl bg-[#F7F8FA] px-3 py-2 text-xs text-[#666666]">

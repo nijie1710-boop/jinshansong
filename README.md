@@ -98,6 +98,27 @@ pnpm build:mp
 本地开发可在微信开发者工具中关闭合法域名校验，并使用 `.env` 的 `VITE_MP_API_BASE_URL`。
 真机预览需要把该地址替换为 HTTPS API 域名，并在微信公众平台配置 request 合法域名。
 
+统一验收时不要混用本地 API 和服务器 API。建议 H5、微信开发者工具、后台都连同一套服务器数据：
+
+```bash
+pnpm dev:user:server-preview
+pnpm dev:merchant:server-preview
+pnpm dev:admin:server-preview
+pnpm build:mp:server-preview
+pnpm check:env:server
+```
+
+这样用户端 H5、商家端 H5、后台页面都会请求 `http://118.25.15.82/api`，和
+`pnpm build:mp:server-preview` 打出的微信小程序预览包保持同一个数据库。需要回到纯本地开发时，再分别运行
+`pnpm dev:user`、`pnpm dev:merchant`、`pnpm dev:admin`，并重新构建本地 API 预览版小程序：
+
+```bash
+pnpm build:mp:local-preview
+pnpm check:env:local
+```
+
+`pnpm check:env:local` / `pnpm check:env:server` 会同时检查用户端 H5、商家端 H5、后台 Web、用户端微信构建包、商家端微信构建包当前指向哪套 API，避免本地和服务器数据混看。
+
 发布前建议先运行小程序配置自检：
 
 ```bash
@@ -185,6 +206,67 @@ pnpm test:data-flow
 ```bash
 KEEP_SMOKE_DATA=1 pnpm test:data-flow
 ```
+
+## 生产部署准备
+
+生产部署配置已放在：
+
+```txt
+docker-compose.prod.yml
+infra/api.Dockerfile
+infra/admin.Dockerfile
+infra/nginx/jinshansong.conf.template
+.env.production.example
+docs/生产部署说明.md
+```
+
+服务器部署前先复制生产环境变量：
+
+```bash
+cp .env.production.example .env.production
+pnpm check:prod
+```
+
+备案通过前可以先用公网 IP 做预部署联调，临时暴露 API 和后台端口：
+
+```bash
+docker compose --env-file .env.production \
+  -f docker-compose.prod.yml \
+  -f docker-compose.preview.yml \
+  up -d --build postgres redis api admin nginx-preview
+```
+
+预部署默认通过 80 端口访问，后台在 `http://服务器IP`，API 在 `http://服务器IP/api`。
+这只能用于联调，微信小程序正式版、支付回调和正式访问仍需要备案域名与 HTTPS。
+
+微信登录模式可一键切换：
+
+```bash
+pnpm wechat:mock
+pnpm wechat:real
+```
+
+本地 H5 和自动化测试建议保持 `mock`；微信开发者工具真机测试真实登录时再切 `real` 并重启 API。
+
+备案前需要在微信开发者工具中测试服务器预览包时：
+
+```bash
+pnpm build:mp:server-preview
+pnpm open:mp:user
+pnpm open:mp:merchant
+```
+
+该构建会使用真实 AppID，并把小程序 API 指向 `http://118.25.15.82`。微信开发者工具内需要开启“不校验合法域名、TLS 版本以及 HTTPS 证书”。备案和 HTTPS 完成后改用 `pnpm build:mp:real`。
+
+生产自检还会提示这些待完成项：
+
+- 后台默认账号和密码不能沿用开发默认值。
+- `PAYMENT_MODE=mock` 只能用于测试，正式交易需接微信支付。当前已预留 `/api/payments/runtime`
+  和 `/api/payments/wechat/notify`，后台“系统配置/后台设置”也能查看支付模式和微信商户配置状态。
+- 真实微信支付上线前需要补齐商户号、API v3 key、商户证书序列号、私钥文件路径和 HTTPS 回调域名；
+  密钥只放服务器环境变量，不写入后台数据库。
+- `UPLOAD_DRIVER=LOCAL` 可试运营，正式大量图片建议切 COS/OSS/CDN。
+- `/api/health` 可查看 API、数据库、Redis、上传目录和运行模式。
 
 ## 演示账号
 
