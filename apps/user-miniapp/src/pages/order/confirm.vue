@@ -21,9 +21,19 @@
     </view>
 
     <view class="card product-card">
-      <view class="product-image">
+      <view
+        class="product-image"
+        :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
+      >
+        <image
+          v-if="displayImageUrl(product.coverUrl)"
+          class="product-cover"
+          :src="displayImageUrl(product.coverUrl)"
+          mode="aspectFill"
+        />
         <view class="mini-device"></view>
-        <text>金闪送</text>
+        <text v-if="isHttpImageBlocked(product.coverUrl)" class="image-note">HTTPS</text>
+        <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{ product.name }}</text>
@@ -285,6 +295,24 @@ function openAddressList() {
   uni.navigateTo({ url: "/pages/address/list" });
 }
 
+function displayImageUrl(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  if (value.startsWith("http://")) {
+    return "";
+  }
+  // #endif
+  return value;
+}
+
+function isHttpImageBlocked(url?: string) {
+  const value = (url || "").trim();
+  // #ifdef MP-WEIXIN
+  return value.startsWith("http://");
+  // #endif
+  return false;
+}
+
 async function submitOrder() {
   if (submitting.value) {
     return;
@@ -342,6 +370,9 @@ onLoad((query) => {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 92px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 176, 32, 0.14), transparent 22%),
+    #f7f8fa;
 }
 
 .address-card,
@@ -358,6 +389,7 @@ onLoad((query) => {
 
 .address-card {
   gap: 10px;
+  border-left: 4px solid #ff7a00;
 }
 
 .service-area-card {
@@ -365,8 +397,9 @@ onLoad((query) => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-radius: 18px;
-  padding: 12px;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 20px;
+  padding: 13px;
   background: linear-gradient(135deg, #fff7ed, #ffffff);
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.05);
 }
@@ -440,21 +473,41 @@ onLoad((query) => {
 
 .product-card {
   gap: 10px;
+  align-items: flex-start;
 }
 
 .product-image {
   position: relative;
   display: flex;
-  width: 70px;
-  height: 70px;
+  width: 76px;
+  height: 76px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 16px;
+  flex: 0 0 76px;
+  border-radius: 18px;
   background: linear-gradient(135deg, #fff2e8, #ffffff);
   color: #ff7a00;
   font-size: 11px;
   font-weight: 800;
+}
+
+.product-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.product-cover + .mini-device {
+  display: none;
+}
+
+.image-note {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .compare-tag {
@@ -468,9 +521,10 @@ onLoad((query) => {
 
 .delivery-choice {
   gap: 12px;
-  border-radius: 16px;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 18px;
   background: linear-gradient(135deg, #fff7ed, #ffffff);
-  padding: 12px;
+  padding: 13px;
 }
 
 .delivery-choice > view {
@@ -586,7 +640,7 @@ onLoad((query) => {
 .bottom-bar {
   justify-content: space-between;
   gap: 16px;
-  padding: 12px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
   background: #ffffff;
   box-shadow: 0 -10px 30px rgba(17, 17, 17, 0.08);
 }

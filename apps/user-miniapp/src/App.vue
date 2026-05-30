@@ -26,7 +26,7 @@ page {
 }
 
 body {
-  background: #dfe3e8;
+  background: linear-gradient(180deg, #dfe3e8 0%, #eef1f5 100%);
   scrollbar-width: none;
 }
 
@@ -81,10 +81,11 @@ uni-tabbar .uni-tabbar {
 }
 
 .card {
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 20px;
   background: #ffffff;
   padding: 14px;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 10px 28px rgba(17, 17, 17, 0.055);
 }
 
 .section {
@@ -119,7 +120,7 @@ uni-tabbar .uni-tabbar {
 
 .primary-button {
   display: flex;
-  height: 44px;
+  height: 46px;
   align-items: center;
   justify-content: center;
   margin: 0;
@@ -134,7 +135,7 @@ uni-tabbar .uni-tabbar {
 
 .ghost-button {
   display: flex;
-  height: 40px;
+  height: 42px;
   align-items: center;
   justify-content: center;
   margin: 0;
@@ -145,6 +146,12 @@ uni-tabbar .uni-tabbar {
   background: #ffffff;
   font-weight: 600;
   line-height: 1;
+}
+
+.primary-button:active,
+.ghost-button:active {
+  transform: scale(0.985);
+  opacity: 0.88;
 }
 
 .primary-button::after,

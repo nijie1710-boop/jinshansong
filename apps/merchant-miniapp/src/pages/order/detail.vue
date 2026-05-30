@@ -293,17 +293,36 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.16), transparent 24%),
+    #f7f8fa;
 }
 
 .status-card {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 20px;
+  overflow: hidden;
+  border-radius: 24px;
   padding: 18px;
-  background: linear-gradient(135deg, #ff7a00, #ff9f1a);
+  background:
+    radial-gradient(circle at 90% 8%, rgba(255, 255, 255, 0.2), transparent 28%),
+    linear-gradient(135deg, #ff7a00, #ff9f1a);
   color: #ffffff;
   box-shadow: 0 12px 28px rgba(255, 122, 0, 0.2);
+}
+
+.status-card::after {
+  position: absolute;
+  right: -24px;
+  bottom: -40px;
+  width: 118px;
+  height: 118px;
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.13);
+  transform: rotate(-15deg);
+  content: "";
 }
 
 .status-title {
@@ -351,6 +370,7 @@ onPullDownRefresh(() => {
 
 .product-card {
   gap: 10px;
+  align-items: flex-start;
 }
 
 .product-image {
@@ -359,8 +379,10 @@ onPullDownRefresh(() => {
   height: 68px;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  background: #fff2e8;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.8), transparent 28%),
+    linear-gradient(135deg, #fff2e8, #ffffff);
   color: #ff7a00;
   font-size: 11px;
   font-weight: 800;
@@ -378,6 +400,7 @@ onPullDownRefresh(() => {
 }
 
 .timeline {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
@@ -385,7 +408,7 @@ onPullDownRefresh(() => {
 
 .timeline text {
   border-radius: 999px;
-  padding: 7px 0;
+  padding: 8px 0;
   background: #f7f8fa;
   color: #666666;
   text-align: center;
@@ -396,11 +419,12 @@ onPullDownRefresh(() => {
   background: #fff2e8;
   color: #ff7a00;
   font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(255, 122, 0, 0.12);
 }
 
 .delivery-badge {
   border-radius: 999px;
-  padding: 5px 9px;
+  padding: 6px 10px;
   background: #f2f3f5;
   color: #666666;
   font-size: 11px;
@@ -424,7 +448,7 @@ onPullDownRefresh(() => {
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #f7f8fa;
   padding: 10px;
   font-size: 12px;
@@ -440,7 +464,7 @@ onPullDownRefresh(() => {
 }
 
 .delivery-empty {
-  border-radius: 14px;
+  border-radius: 16px;
   background: #fff7ed;
   padding: 12px;
   color: #a35400;
@@ -458,6 +482,14 @@ onPullDownRefresh(() => {
 
 .actions {
   gap: 10px;
+  position: sticky;
+  bottom: 10px;
+  z-index: 3;
+  border-radius: 20px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 -8px 28px rgba(17, 17, 17, 0.08);
+  backdrop-filter: blur(12px);
 }
 
 .actions button {

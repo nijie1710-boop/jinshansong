@@ -43,6 +43,8 @@
       </view>
       <view class="hero-visual">
         <view class="speed-pill">30min</view>
+        <view class="mini-cable cable-a"></view>
+        <view class="mini-cable cable-b"></view>
         <view class="gift">
           <text>¥5</text>
         </view>
@@ -366,6 +368,9 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 176, 32, 0.18), transparent 26%),
+    #f7f8fa;
 }
 
 .topbar,
@@ -381,6 +386,16 @@ onPullDownRefresh(() => {
 .section-head,
 .product-bottom {
   justify-content: space-between;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: -12px -12px 0;
+  padding: 12px 12px 8px;
+  background: rgba(247, 248, 250, 0.94);
+  backdrop-filter: blur(14px);
 }
 
 .location {
@@ -506,17 +521,30 @@ onPullDownRefresh(() => {
 }
 
 .hero {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
-  min-height: 126px;
-  border-radius: 20px;
-  padding: 16px;
+  min-height: 136px;
+  border-radius: 24px;
+  padding: 17px 16px;
   background:
-    radial-gradient(circle at 82% 20%, rgba(255, 255, 255, 0.85), transparent 26%),
-    linear-gradient(135deg, #fff1e5 0%, #ffd09a 52%, #ff7a00 100%);
-  box-shadow: 0 12px 30px rgba(255, 122, 0, 0.18);
+    radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.88), transparent 22%),
+    radial-gradient(circle at 95% 92%, rgba(255, 122, 0, 0.36), transparent 26%),
+    linear-gradient(135deg, #fff1e5 0%, #ffd09a 48%, #ff7a00 100%);
+  box-shadow: 0 16px 34px rgba(255, 122, 0, 0.2);
+}
+
+.hero::after {
+  position: absolute;
+  right: -22px;
+  bottom: -34px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  content: "";
 }
 
 .hero-copy {
@@ -528,7 +556,7 @@ onPullDownRefresh(() => {
 
 .hero-logo {
   width: 116px;
-  height: 40px;
+  height: 38px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.72);
 }
@@ -546,11 +574,12 @@ onPullDownRefresh(() => {
 
 .hero-button {
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 7px 13px;
   background: #ff7a00;
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
+  box-shadow: 0 8px 16px rgba(255, 122, 0, 0.24);
 }
 
 .hero-visual {
@@ -560,6 +589,28 @@ onPullDownRefresh(() => {
   height: 104px;
   align-items: center;
   justify-content: center;
+  z-index: 1;
+}
+
+.mini-cable {
+  position: absolute;
+  width: 58px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(255, 122, 0, 0.1);
+}
+
+.cable-a {
+  top: 30px;
+  left: 1px;
+  transform: rotate(-26deg);
+}
+
+.cable-b {
+  right: 0;
+  bottom: 22px;
+  transform: rotate(22deg);
 }
 
 .speed-pill {
@@ -588,12 +639,13 @@ onPullDownRefresh(() => {
   font-weight: 800;
   transform: rotate(-8deg);
   box-shadow: 0 10px 24px rgba(255, 90, 31, 0.28);
+  z-index: 1;
 }
 
 .promise-card {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 12px 8px;
+  padding: 13px 8px;
 }
 
 .promise-item,
@@ -620,6 +672,7 @@ onPullDownRefresh(() => {
 .promise-icon {
   width: 32px;
   height: 32px;
+  box-shadow: inset 0 -8px 18px rgba(255, 122, 0, 0.08);
 }
 
 .category-card {
@@ -637,6 +690,7 @@ onPullDownRefresh(() => {
 .category-icon {
   width: 44px;
   height: 44px;
+  box-shadow: inset 0 -10px 18px rgba(255, 122, 0, 0.08);
 }
 
 .activity-grid {
@@ -646,11 +700,25 @@ onPullDownRefresh(() => {
 }
 
 .activity-card {
+  position: relative;
+  overflow: hidden;
   min-height: 74px;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 11px;
   background: linear-gradient(135deg, #fff2e8, #ffffff);
   box-shadow: 0 8px 20px rgba(17, 17, 17, 0.05);
+}
+
+.activity-card::after {
+  position: absolute;
+  right: -14px;
+  bottom: -18px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: rgba(255, 122, 0, 0.08);
+  transform: rotate(-14deg);
+  content: "";
 }
 
 .activity-title {
@@ -686,20 +754,30 @@ onPullDownRefresh(() => {
 
 .product-card {
   overflow: hidden;
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
 }
 
 .product-image {
   position: relative;
   display: flex;
-  height: 112px;
+  height: 116px;
   align-items: center;
   justify-content: center;
   color: #ff7a00;
   font-size: 12px;
   font-weight: 800;
+}
+
+.product-image::after {
+  position: absolute;
+  inset: auto 10px 8px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 122, 0, 0.16), transparent);
+  content: "";
 }
 
 .product-cover {
@@ -730,8 +808,8 @@ onPullDownRefresh(() => {
 .product-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 11px;
+  gap: 7px;
+  padding: 12px;
 }
 
 .product-name {
@@ -780,5 +858,6 @@ onPullDownRefresh(() => {
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
+  box-shadow: 0 8px 14px rgba(255, 122, 0, 0.22);
 }
 </style>

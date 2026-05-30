@@ -3,6 +3,7 @@ import { API_BASE_URL } from "../config/api";
 const MERCHANT_TOKEN_KEY = "jss_merchant_token";
 const MERCHANT_STORE_CODE_KEY = "jss_merchant_store_code";
 const MERCHANT_STORE_KEY = "jss_merchant_store";
+const MERCHANT_STORES_KEY = "jss_merchant_stores";
 const DEFAULT_STORE_CODE = "FZ-TAIJIANG-001";
 
 export interface MerchantOrder {
@@ -159,6 +160,7 @@ export interface MerchantLoginResult {
   openId?: string;
   token?: string;
   store?: MerchantStore;
+  stores?: MerchantStore[];
   application?: StoreApplication | null;
 }
 
@@ -232,6 +234,7 @@ export interface UploadResult {
 export interface MerchantSession {
   token: string;
   store: MerchantStore;
+  stores?: MerchantStore[];
 }
 
 export type WechatMerchantLoginPayload = {
@@ -266,6 +269,7 @@ export function saveMerchantSession(session: MerchantSession) {
   uni.setStorageSync(MERCHANT_TOKEN_KEY, session.token);
   uni.setStorageSync(MERCHANT_STORE_CODE_KEY, session.store.code);
   uni.setStorageSync(MERCHANT_STORE_KEY, session.store);
+  saveCachedMerchantStores(session.stores?.length ? session.stores : [session.store]);
 }
 
 export function saveCachedMerchantStore(store: MerchantStore) {
@@ -273,15 +277,25 @@ export function saveCachedMerchantStore(store: MerchantStore) {
   uni.setStorageSync(MERCHANT_STORE_KEY, store);
 }
 
+export function saveCachedMerchantStores(stores: MerchantStore[]) {
+  uni.setStorageSync(MERCHANT_STORES_KEY, stores);
+}
+
 export function getCachedMerchantStore() {
   const store = uni.getStorageSync(MERCHANT_STORE_KEY);
   return store && typeof store === "object" ? (store as MerchantStore) : null;
+}
+
+export function getCachedMerchantStores() {
+  const stores = uni.getStorageSync(MERCHANT_STORES_KEY);
+  return Array.isArray(stores) ? (stores as MerchantStore[]) : [];
 }
 
 export function clearMerchantSession() {
   uni.removeStorageSync(MERCHANT_TOKEN_KEY);
   uni.removeStorageSync(MERCHANT_STORE_CODE_KEY);
   uni.removeStorageSync(MERCHANT_STORE_KEY);
+  uni.removeStorageSync(MERCHANT_STORES_KEY);
 }
 
 export class ApiRequestError extends Error {
@@ -384,6 +398,12 @@ export const api = {
     request<StoreApplication>("/auth/merchant/apply", { method: "POST", data }),
   login: (phone: string) =>
     request<MerchantLoginResult>("/auth/merchant/login", { method: "POST", data: { phone } }),
+  stores: () => request<MerchantStore[]>("/auth/merchant/stores"),
+  switchStore: (storeCode: string) =>
+    request<MerchantSession>("/auth/merchant/switch-store", {
+      method: "POST",
+      data: { storeCode }
+    }),
   applicationStatus: (phone: string) =>
     request<StoreApplication | null>("/auth/merchant/application-status", {
       method: "POST",

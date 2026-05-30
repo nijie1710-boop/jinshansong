@@ -215,20 +215,37 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.16), transparent 24%),
+    #f7f8fa;
 }
 
 .status-card {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 106px;
-  border-radius: 20px;
+  overflow: hidden;
+  border-radius: 24px;
   padding: 18px;
   background:
     radial-gradient(circle at 92% 8%, rgba(255, 255, 255, 0.25), transparent 30%),
     linear-gradient(135deg, #ff7a00, #ff9f1a);
   color: #ffffff;
   box-shadow: 0 12px 28px rgba(255, 122, 0, 0.2);
+}
+
+.status-card::after {
+  position: absolute;
+  right: -20px;
+  bottom: -34px;
+  width: 116px;
+  height: 116px;
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.14);
+  transform: rotate(-16deg);
+  content: "";
 }
 
 .status-title {
@@ -252,12 +269,25 @@ onPullDownRefresh(() => {
 }
 
 .progress {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 5px;
 }
 
+.progress::before {
+  position: absolute;
+  top: 11px;
+  right: 10%;
+  left: 10%;
+  height: 2px;
+  background: #f1f1f1;
+  content: "";
+}
+
 .step {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -312,6 +342,7 @@ onPullDownRefresh(() => {
   border-radius: 50%;
   background: #fff2e8;
   color: #ff7a00;
+  font-weight: 800;
 }
 
 .button-row {
@@ -324,6 +355,7 @@ onPullDownRefresh(() => {
 
 .product-card {
   gap: 10px;
+  align-items: flex-start;
 }
 
 .product-image {
@@ -334,8 +366,10 @@ onPullDownRefresh(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 16px;
-  background: #fff2e8;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.82), transparent 28%),
+    linear-gradient(135deg, #fff2e8, #ffffff);
   color: #ff7a00;
   font-size: 11px;
   font-weight: 800;

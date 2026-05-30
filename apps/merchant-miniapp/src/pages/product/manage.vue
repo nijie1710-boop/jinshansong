@@ -44,6 +44,14 @@
       </view>
     </view>
 
+    <view v-if="hasMerchantAccess" class="current-store-card" @tap="goSettings">
+      <view>
+        <text class="current-store-label">当前上架门店</text>
+        <text class="current-store-name">{{ merchantStore?.name || "已审核门店" }}</text>
+      </view>
+      <text class="current-store-action">切换门店 ›</text>
+    </view>
+
     <view v-if="hasMerchantAccess" class="card audit-flow-card">
       <view class="section-head">
         <text class="section-title">上架审核流程</text>
@@ -83,7 +91,8 @@
       <view class="upload-readiness-card">
         <text class="upload-readiness-title">图片上传提示</text>
         <text
-          >当前验收环境会把图片保存到本地后端并直接预览；正式版需切换 HTTPS 图片域名后再提交审核。</text
+          >当前验收环境会把图片保存到本地后端并直接预览；正式版需切换 HTTPS
+          图片域名后再提交审核。</text
         >
       </view>
 
@@ -911,6 +920,10 @@ function goLogin() {
   uni.navigateTo({ url: "/pages/login/index" });
 }
 
+function goSettings() {
+  uni.switchTab({ url: "/pages/settings/index" });
+}
+
 function productStatusLabel(product: MerchantProduct) {
   if (product.reviewStatus === "PENDING") return "待审核";
   if (product.reviewStatus === "REJECTED") return "已驳回";
@@ -1099,21 +1112,35 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.18), transparent 24%), #f7f8fa;
 }
 
 .product-hero {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
-  border-radius: 0 0 24px 24px;
+  border-radius: 0 0 28px 28px;
   margin: -12px -12px 0;
-  padding: 20px 16px 46px;
+  padding: 20px 16px 28px;
   background:
     radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.28), transparent 30%),
     linear-gradient(135deg, #ff7a00, #ffb020);
   color: #ffffff;
   box-shadow: 0 14px 34px rgba(255, 122, 0, 0.22);
+}
+
+.product-hero::after {
+  position: absolute;
+  right: -22px;
+  bottom: -36px;
+  width: 128px;
+  height: 128px;
+  border-radius: 36px;
+  background: rgba(255, 255, 255, 0.13);
+  transform: rotate(-16deg);
+  content: "";
 }
 
 .hero-kicker,
@@ -1147,25 +1174,31 @@ onPullDownRefresh(() => {
   font-size: 30px;
   font-weight: 800;
   transform: rotate(-10deg);
+  z-index: 1;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-top: -34px;
+  position: relative;
+  z-index: 2;
+  margin-top: 0;
 }
 
 .stat-card,
 .empty-card,
 .product-card {
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 20px;
   background: #ffffff;
   box-shadow: 0 10px 28px rgba(17, 17, 17, 0.07);
 }
 
 .stat-card {
+  min-height: 72px;
   padding: 12px 8px;
+  box-sizing: border-box;
   text-align: center;
 }
 
@@ -1186,10 +1219,47 @@ onPullDownRefresh(() => {
   font-weight: 800;
 }
 
+.current-store-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 18px;
+  padding: 13px 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+}
+
+.current-store-label,
+.current-store-name {
+  display: block;
+}
+
+.current-store-label {
+  color: #999999;
+  font-size: 11px;
+}
+
+.current-store-name {
+  margin-top: 4px;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.current-store-action {
+  flex-shrink: 0;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .form-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .audit-flow-card {
@@ -1295,14 +1365,32 @@ onPullDownRefresh(() => {
 }
 
 .image-upload {
+  position: relative;
   overflow: hidden;
   height: 128px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.22)), #fffaf4;
+  border: 1px dashed rgba(255, 122, 0, 0.32);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.86), transparent 28%),
+    linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.22)), #fffaf4;
+}
+
+.image-upload::after {
+  position: absolute;
+  right: -20px;
+  bottom: -24px;
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background: rgba(255, 122, 0, 0.08);
+  transform: rotate(-14deg);
+  content: "";
 }
 
 .preview-image,
 .upload-inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
 }
@@ -1335,7 +1423,7 @@ onPullDownRefresh(() => {
   padding: 12px 14px;
   flex-direction: column;
   gap: 5px;
-  border-radius: 16px;
+  border-radius: 18px;
   background: #fff7ed;
   color: #99600f;
   font-size: 12px;
@@ -1352,7 +1440,7 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 12px;
   background: #f7f8fa;
 }
@@ -1438,7 +1526,8 @@ onPullDownRefresh(() => {
   position: relative;
   overflow: hidden;
   aspect-ratio: 1;
-  border-radius: 14px;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 16px;
   background: #fffaf4;
 }
 
@@ -1504,7 +1593,7 @@ onPullDownRefresh(() => {
 .mini-input {
   box-sizing: border-box;
   width: 100%;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #f7f8fa;
   color: #111111;
   font-size: 14px;
@@ -1552,7 +1641,7 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 13px;
+  padding: 14px;
 }
 
 .product-row {
@@ -1568,7 +1657,7 @@ onPullDownRefresh(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 18px;
   color: #ff7a00;
   font-size: 10px;
   font-weight: 800;
@@ -1672,7 +1761,7 @@ onPullDownRefresh(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 10px;
   background: #f7f8fa;
 }

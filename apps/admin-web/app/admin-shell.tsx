@@ -58,25 +58,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#F5F6F8]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[272px] shrink-0 border-r border-white/10 bg-[#0D1720] text-white shadow-2xl lg:sticky lg:top-0 lg:block lg:h-screen">
-          <div className="flex h-full flex-col p-5">
-            <div className="mb-6 rounded-[24px] bg-white/[0.06] p-4 ring-1 ring-white/10">
+        <aside className="hidden w-[252px] shrink-0 border-r border-white/10 bg-[#0D1720] text-white shadow-2xl lg:sticky lg:top-0 lg:block lg:h-screen">
+          <div className="flex h-full flex-col p-4">
+            <div className="mb-4 rounded-[22px] bg-white/[0.06] p-3.5 ring-1 ring-white/10">
               <div className="flex items-center gap-3">
-                <div className="flex size-12 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-                  <img className="size-10 object-contain" src="/brand/logo-icon.png" alt="金闪送" />
+                <div className="flex size-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
+                  <img className="size-9 object-contain" src="/brand/logo-icon.png" alt="金闪送" />
                 </div>
                 <div>
                   <div className="text-lg font-semibold">金闪送</div>
                   <div className="mt-0.5 text-xs text-white/55">福州即时闪购运营台</div>
                 </div>
               </div>
-              <div className="mt-4 rounded-2xl bg-[#FF7A00] px-3 py-2.5 shadow-lg shadow-orange-950/20">
+              <div className="mt-3 rounded-2xl bg-[#FF7A00] px-3 py-2.5 shadow-lg shadow-orange-950/20">
                 <div className="text-sm font-semibold">本地真实接口联调</div>
                 <div className="mt-0.5 text-xs text-white/78">订单、商品、门店数据已互通</div>
               </div>
             </div>
 
-            <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+            <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 [scrollbar-color:rgba(255,255,255,0.22)_transparent] [scrollbar-width:thin]">
               {navGroups.map((group) => (
                 <div key={group.title}>
                   <div className="mb-2 px-2 text-[11px] font-semibold tracking-wide text-white/35">
@@ -94,7 +94,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                           aria-current={active ? "page" : undefined}
                           className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
                             active
-                              ? "bg-white text-[#111111] shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+                              ? "bg-white font-semibold text-[#111111] shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
                               : "text-white/70 hover:bg-white/[0.08] hover:text-white"
                           }`}
                           href={item.href}
@@ -109,7 +109,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                           >
                             <Icon className="size-4" />
                           </span>
-                          <span>{item.label}</span>
+                          <span className="truncate">{item.label}</span>
                         </Link>
                       );
                     })}
@@ -118,7 +118,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
 
-            <div className="mt-5 rounded-[22px] bg-white/[0.06] p-4 text-sm ring-1 ring-white/10">
+            <div className="mt-4 rounded-[20px] bg-white/[0.06] p-3.5 text-sm ring-1 ring-white/10">
               <div className="flex items-center justify-between">
                 <span className="text-white/68">上线状态</span>
                 <span className="rounded-full bg-[#FFB020]/20 px-2 py-1 text-xs text-[#FFD38A]">
@@ -134,8 +134,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </aside>
 
         <main className="min-w-0 flex-1">
-          <header className="sticky top-0 z-20 border-b border-black/5 bg-white/90 px-5 py-3 backdrop-blur-xl xl:px-8">
-            <div className="mx-auto flex max-w-[1540px] items-center justify-between gap-4">
+          <header className="sticky top-0 z-20 border-b border-black/5 bg-white/[0.92] px-5 py-3 backdrop-blur-xl xl:px-8">
+            <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-xs font-medium text-[#FF7A00]">FUZHOU DIGITAL QUICK COMMERCE</div>
                 <div className="mt-0.5 text-lg font-semibold">运营管理台</div>
@@ -166,7 +166,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </Link>
               </div>
             </div>
-            <div className="mx-auto mt-3 max-w-[1540px] overflow-x-auto lg:hidden">
+            <div className="mx-auto mt-3 max-w-[1480px] overflow-x-auto lg:hidden">
               <div className="flex min-w-max gap-2 pb-1">
                 {navGroups.flatMap((group) =>
                   group.items.map((item) => {
@@ -193,7 +193,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
-          <div className="mx-auto max-w-[1540px] px-5 py-6 xl:px-8">{children}</div>
+          <div className="mx-auto max-w-[1480px] px-5 py-6 xl:px-8">{children}</div>
         </main>
       </div>
     </div>

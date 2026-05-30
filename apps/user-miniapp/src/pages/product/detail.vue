@@ -210,17 +210,20 @@ onLoad(async (query) => {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 90px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 176, 32, 0.16), transparent 24%),
+    #f7f8fa;
 }
 
 .product-visual {
   position: relative;
   display: flex;
-  height: 286px;
+  height: 302px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 0 0 24px 24px;
+  border-radius: 0 0 28px 28px;
   margin: -12px -12px 0;
 }
 
@@ -232,14 +235,27 @@ onLoad(async (query) => {
 }
 
 .visual-device {
-  width: 132px;
-  height: 160px;
-  border-radius: 32px;
+  width: 142px;
+  height: 170px;
+  border-radius: 34px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow:
     inset 0 0 0 1px rgba(255, 122, 0, 0.12),
     0 24px 54px rgba(17, 17, 17, 0.08);
   transform: rotate(-18deg);
+}
+
+.product-visual::after {
+  position: absolute;
+  right: 34px;
+  bottom: 58px;
+  width: 120px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: inset 0 0 0 1px rgba(255, 122, 0, 0.08);
+  transform: rotate(23deg);
+  content: "";
 }
 
 .visual-brand {
@@ -264,6 +280,9 @@ onLoad(async (query) => {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  margin-top: -28px;
+  position: relative;
+  z-index: 2;
 }
 
 .price-row,
@@ -280,7 +299,7 @@ onLoad(async (query) => {
 }
 
 .big-price {
-  font-size: 24px;
+  font-size: 27px;
 }
 
 .origin {
@@ -290,7 +309,7 @@ onLoad(async (query) => {
 }
 
 .product-title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.35;
 }
@@ -322,7 +341,7 @@ onLoad(async (query) => {
 .chip {
   border-radius: 999px;
   border: 1px solid #e8e8e8;
-  padding: 8px 14px;
+  padding: 8px 15px;
   color: #666666;
   font-size: 13px;
 }
@@ -373,6 +392,9 @@ onLoad(async (query) => {
   display: flex;
   align-items: center;
   gap: 6px;
+  border-radius: 14px;
+  padding: 10px;
+  background: #f7f8fa;
   color: #666666;
   font-size: 13px;
 }
@@ -384,7 +406,7 @@ onLoad(async (query) => {
 
 .bottom-bar {
   gap: 10px;
-  padding: 12px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
   background: #ffffff;
   box-shadow: 0 -10px 30px rgba(17, 17, 17, 0.08);
 }

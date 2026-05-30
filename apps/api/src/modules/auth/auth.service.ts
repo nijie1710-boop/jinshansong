@@ -129,7 +129,10 @@ export class AuthService {
         storeId: store.id,
         storeCode: store.code
       }),
-      store: this.formatStore(store)
+      store: this.formatStore(store),
+      stores: (await this.ownedMerchantStoresForAccount(account)).map((item) =>
+        this.formatStore(item)
+      )
     };
   }
 
@@ -170,6 +173,45 @@ export class AuthService {
     const resolvedStoreCode = await this.resolveMerchantStoreCode(merchantToken, storeCode);
     const store = await this.resolveStore(resolvedStoreCode);
     return this.formatStore(store);
+  }
+
+  async merchantStores(merchantToken?: string) {
+    const { account } = await this.resolveMerchantAccountSession(merchantToken);
+    return (await this.ownedMerchantStoresForAccount(account)).map((store) =>
+      this.formatStore(store)
+    );
+  }
+
+  async merchantSwitchStore(merchantToken: string | undefined, storeCode?: string) {
+    const { account } = await this.resolveMerchantAccountSession(merchantToken);
+    const store = await this.resolveOwnedMerchantStore(account, storeCode);
+
+    await this.prisma.merchantAccount.update({
+      where: { id: account.id },
+      data: {
+        storeId: store.id,
+        lastLoginAt: new Date()
+      }
+    });
+
+    const refreshedAccount = {
+      ...account,
+      storeId: store.id,
+      store
+    };
+
+    return {
+      token: createSessionToken({
+        type: "merchant",
+        sub: account.id,
+        storeId: store.id,
+        storeCode: store.code
+      }),
+      store: this.formatStore(store),
+      stores: (await this.ownedMerchantStoresForAccount(refreshedAccount)).map((item) =>
+        this.formatStore(item)
+      )
+    };
   }
 
   async merchantApply(dto: {
@@ -233,11 +275,18 @@ export class AuthService {
       throw new BadRequestException("请输入入驻申请手机号");
     }
 
-    const application = await this.prisma.storeApplication.findFirst({
+    const applications = await this.prisma.storeApplication.findMany({
       where: { applicantPhone: { in: this.phoneCandidates(phone) } },
       include: { store: true },
       orderBy: { createdAt: "desc" }
     });
+    const application =
+      applications.find(
+        (item) =>
+          item.status === StoreApplicationStatus.APPROVED &&
+          item.store &&
+          item.store.status === StoreStatus.OPEN
+      ) ?? applications[0];
 
     if (!application) {
       return {
@@ -280,6 +329,9 @@ export class AuthService {
         storeCode: application.store.code
       }),
       store: this.formatStore(application.store),
+      stores: (await this.ownedMerchantStoresForAccount(account)).map((store) =>
+        this.formatStore(store)
+      ),
       application: this.formatApplication(application)
     };
   }
@@ -306,17 +358,19 @@ export class AuthService {
       include: { store: true }
     });
 
-    if (
-      !account ||
-      account.status !== AccountStatus.ACTIVE ||
-      account.store.status !== StoreStatus.OPEN
-    ) {
+    if (!account || account.status !== AccountStatus.ACTIVE) {
+      return null;
+    }
+
+    const stores = await this.ownedMerchantStoresForAccount(account);
+    const activeStore = stores.find((store) => store.id === account.storeId) ?? stores[0];
+    if (!activeStore) {
       return null;
     }
 
     await this.prisma.merchantAccount.update({
       where: { id: account.id },
-      data: { lastLoginAt: new Date() }
+      data: { storeId: activeStore.id, lastLoginAt: new Date() }
     });
 
     return {
@@ -324,10 +378,11 @@ export class AuthService {
       token: createSessionToken({
         type: "merchant",
         sub: account.id,
-        storeId: account.store.id,
-        storeCode: account.store.code
+        storeId: activeStore.id,
+        storeCode: activeStore.code
       }),
-      store: this.formatStore(account.store),
+      store: this.formatStore(activeStore),
+      stores: stores.map((store) => this.formatStore(store)),
       application: await this.merchantApplicationStatus(account.phone)
     };
   }
@@ -390,13 +445,47 @@ export class AuthService {
     }
 
     const requestedCode = requestedStoreCode?.trim();
-    const resolvedCode = await this.resolveMerchantStoreCodeFromToken(merchantToken.trim());
 
-    if (requestedCode && requestedCode !== resolvedCode) {
-      throw new UnauthorizedException("当前账号无权操作其他门店");
+    if (merchantToken.startsWith("demo-store:")) {
+      const tokenStoreCode = merchantToken.replace("demo-store:", "");
+      if (requestedCode && requestedCode !== tokenStoreCode) {
+        throw new UnauthorizedException("当前账号无权操作其他门店");
+      }
+      return tokenStoreCode;
     }
 
-    return resolvedCode;
+    if (merchantToken.startsWith("merchant-phone:")) {
+      const phone = merchantToken.replace("merchant-phone:", "");
+      const store = requestedCode
+        ? await this.resolveOwnedStoreByPhone(phone, requestedCode)
+        : await this.resolveLatestStoreByPhone(phone);
+      return store.code;
+    }
+
+    const { account, payload } = await this.resolveMerchantAccountSession(merchantToken);
+    const stores = await this.ownedMerchantStoresForAccount(account);
+
+    if (requestedCode) {
+      const store = stores.find((item) => item.code === requestedCode);
+      if (!store) {
+        throw new UnauthorizedException("当前账号无权操作其他门店");
+      }
+      return store.code;
+    }
+
+    const payloadStore = payload.storeCode
+      ? stores.find((item) => item.code === payload.storeCode)
+      : null;
+    if (payloadStore) {
+      return payloadStore.code;
+    }
+
+    const accountStore = stores.find((item) => item.id === account.storeId) ?? stores[0];
+    if (!accountStore) {
+      throw new UnauthorizedException("商家账号暂未绑定可用门店");
+    }
+
+    return accountStore.code;
   }
 
   private async upsertWechatUser(openId: string, data: { phone?: string; nickname: string }) {
@@ -591,45 +680,127 @@ export class AuthService {
     return [...new Set(candidates)];
   }
 
-  private async resolveMerchantStoreCodeFromToken(token: string) {
-    if (token.startsWith("demo-store:")) {
-      return token.replace("demo-store:", "");
+  private async resolveMerchantAccountSession(token?: string) {
+    if (!token?.trim()) {
+      throw new UnauthorizedException("请先登录商家端");
     }
 
-    if (token.startsWith("merchant-phone:")) {
-      const phone = token.replace("merchant-phone:", "");
-      const application = await this.prisma.storeApplication.findFirst({
-        where: { applicantPhone: { in: this.phoneCandidates(phone) } },
-        include: { store: true },
-        orderBy: { createdAt: "desc" }
-      });
-
-      if (!application?.store) {
-        throw new UnauthorizedException("商家登录状态已失效，请重新登录");
-      }
-
-      return application.store.code;
-    }
-
-    const payload = verifySessionToken(token, "merchant");
+    const payload = verifySessionToken(token.trim(), "merchant");
     const account = await this.prisma.merchantAccount.findUnique({
       where: { id: payload.sub },
       include: { store: true }
     });
 
-    if (
-      !account ||
-      account.status !== AccountStatus.ACTIVE ||
-      account.store.status !== StoreStatus.OPEN
-    ) {
+    if (!account || account.status !== AccountStatus.ACTIVE) {
       throw new UnauthorizedException("商家账号或门店状态异常，请重新登录");
     }
 
-    if (payload.storeId && payload.storeId !== account.storeId) {
-      throw new UnauthorizedException("商家登录状态与门店不匹配，请重新登录");
+    return { account, payload };
+  }
+
+  private async ownedMerchantStoresForAccount(account: {
+    id: string;
+    phone: string;
+    storeId: string;
+    store?: Awaited<ReturnType<AuthService["resolveStore"]>>;
+  }) {
+    const applications = await this.prisma.storeApplication.findMany({
+      where: {
+        applicantPhone: { in: this.phoneCandidates(account.phone) },
+        status: StoreApplicationStatus.APPROVED,
+        storeId: { not: null }
+      },
+      include: { store: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const stores = applications
+      .map((application) => application.store)
+      .filter((store): store is Awaited<ReturnType<AuthService["resolveStore"]>> =>
+        Boolean(store && store.status === StoreStatus.OPEN)
+      );
+
+    const directStore =
+      account.store && account.store.status === StoreStatus.OPEN
+        ? account.store
+        : await this.prisma.store.findFirst({
+            where: {
+              id: account.storeId,
+              status: StoreStatus.OPEN
+            }
+          });
+
+    if (directStore) {
+      stores.unshift(directStore);
     }
 
-    return account.store.code;
+    const uniqueStores = new Map(
+      stores.map((store) => [store.id, store as Awaited<ReturnType<AuthService["resolveStore"]>>])
+    );
+
+    return [...uniqueStores.values()];
+  }
+
+  private async resolveOwnedMerchantStore(
+    account: {
+      id: string;
+      phone: string;
+      storeId: string;
+      store?: Awaited<ReturnType<AuthService["resolveStore"]>>;
+    },
+    storeCode?: string
+  ) {
+    const requestedCode = storeCode?.trim();
+    if (!requestedCode) {
+      throw new BadRequestException("请选择要切换的门店");
+    }
+
+    const store = (await this.ownedMerchantStoresForAccount(account)).find(
+      (item) => item.code === requestedCode
+    );
+    if (!store) {
+      throw new UnauthorizedException("当前账号无权切换到该门店");
+    }
+
+    return store;
+  }
+
+  private async resolveOwnedStoreByPhone(phone: string, storeCode: string) {
+    const application = await this.prisma.storeApplication.findFirst({
+      where: {
+        applicantPhone: { in: this.phoneCandidates(phone) },
+        status: StoreApplicationStatus.APPROVED,
+        store: {
+          code: storeCode,
+          status: StoreStatus.OPEN
+        }
+      },
+      include: { store: true }
+    });
+
+    if (!application?.store) {
+      throw new UnauthorizedException("当前账号无权操作其他门店");
+    }
+
+    return application.store;
+  }
+
+  private async resolveLatestStoreByPhone(phone: string) {
+    const application = await this.prisma.storeApplication.findFirst({
+      where: {
+        applicantPhone: { in: this.phoneCandidates(phone) },
+        status: StoreApplicationStatus.APPROVED,
+        store: { status: StoreStatus.OPEN }
+      },
+      include: { store: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!application?.store) {
+      throw new UnauthorizedException("商家登录状态已失效，请重新登录");
+    }
+
+    return application.store;
   }
 
   private async upsertMerchantAccount(data: {

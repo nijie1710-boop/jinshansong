@@ -210,19 +210,35 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.16), transparent 24%),
+    #f7f8fa;
 }
 
 .reminder-card {
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
-}
-
-.pending-card {
   border: 1px solid rgba(255, 122, 0, 0.08);
   border-radius: 20px;
   background: #ffffff;
+  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
+}
+
+.pending-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
   box-shadow: 0 12px 30px rgba(17, 17, 17, 0.08);
+}
+
+.pending-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #ff7a00, #ffb020);
+  content: "";
 }
 
 .empty-card {
@@ -255,8 +271,8 @@ onPullDownRefresh(() => {
 .pending-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 13px;
+  gap: 11px;
+  padding: 15px 13px 13px;
 }
 
 .order-no {
@@ -268,15 +284,15 @@ onPullDownRefresh(() => {
 
 .countdown {
   display: flex;
-  min-width: 70px;
+  min-width: 78px;
   flex-direction: column;
   align-items: center;
-  border-radius: 14px;
-  padding: 6px 9px;
+  border-radius: 16px;
+  padding: 7px 9px;
   background: linear-gradient(135deg, #ff7a00, #ffb020);
   color: #ffffff;
   text-align: center;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 800;
   box-shadow: 0 8px 18px rgba(255, 122, 0, 0.2);
 }
@@ -292,6 +308,9 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  border-radius: 16px;
+  padding: 10px;
+  background: #f7f8fa;
 }
 
 .customer {
@@ -306,9 +325,9 @@ onPullDownRefresh(() => {
 
 .product-row {
   gap: 9px;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 8px;
-  background: #fffaf4;
+  background: linear-gradient(135deg, #fffaf4, #ffffff);
 }
 
 .product-image {
@@ -318,7 +337,7 @@ onPullDownRefresh(() => {
   flex: 0 0 54px;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 16px;
   background: linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.22)), #ffffff;
   color: #ff7a00;
   font-size: 10px;
@@ -376,7 +395,7 @@ onPullDownRefresh(() => {
 }
 
 .actions .primary-button {
-  background: #ff7a00;
+  background: linear-gradient(135deg, #ff7a00, #ff9f1a);
   box-shadow: 0 10px 20px rgba(255, 122, 0, 0.24);
 }
 

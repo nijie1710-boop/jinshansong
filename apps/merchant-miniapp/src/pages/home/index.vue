@@ -362,16 +362,34 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.18), transparent 24%),
+    #f7f8fa;
 }
 
 .merchant-hero {
-  border-radius: 0 0 24px 24px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 28px 28px;
   margin: -12px -12px 0;
-  padding: 20px 16px 50px;
+  padding: 20px 16px 54px;
   background:
-    radial-gradient(circle at 90% 0%, rgba(255, 255, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 90% 0%, rgba(255, 255, 255, 0.24), transparent 30%),
+    radial-gradient(circle at 100% 90%, rgba(255, 255, 255, 0.16), transparent 26%),
     linear-gradient(135deg, #ff7a00, #ff9f1a);
   color: #ffffff;
+}
+
+.merchant-hero::after {
+  position: absolute;
+  right: -22px;
+  bottom: -36px;
+  width: 128px;
+  height: 128px;
+  border-radius: 36px;
+  background: rgba(255, 255, 255, 0.13);
+  transform: rotate(-16deg);
+  content: "";
 }
 
 .hero-top,
@@ -441,9 +459,10 @@ onPullDownRefresh(() => {
 .sound-state {
   margin-top: 14px;
   border-radius: 12px;
-  padding: 9px 10px;
+  padding: 10px 11px;
   background: rgba(255, 255, 255, 0.16);
   font-size: 12px;
+  backdrop-filter: blur(10px);
 }
 
 .stats-grid {
@@ -458,9 +477,10 @@ onPullDownRefresh(() => {
 .audit-card,
 .delivery-status-card,
 .order-card {
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.065);
 }
 
 .audit-card {
@@ -525,7 +545,7 @@ onPullDownRefresh(() => {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid rgba(255, 122, 0, 0.1);
-  padding: 14px;
+  padding: 15px;
 }
 
 .delivery-status-card .muted {
@@ -586,10 +606,11 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 20px;
   padding: 13px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
 }
 
 .quick-icon {
@@ -615,6 +636,8 @@ onPullDownRefresh(() => {
 }
 
 .order-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -624,6 +647,16 @@ onPullDownRefresh(() => {
   box-shadow: 0 12px 30px rgba(17, 17, 17, 0.08);
 }
 
+.order-card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ff7a00, #ffb020);
+  content: "";
+}
+
 .order-no,
 .product-name {
   font-weight: 800;
@@ -631,14 +664,14 @@ onPullDownRefresh(() => {
 
 .countdown {
   display: flex;
-  min-width: 70px;
+  min-width: 76px;
   flex-direction: column;
   align-items: center;
   border-radius: 14px;
   padding: 6px 9px;
   background: linear-gradient(135deg, #ff7a00, #ffb020);
   color: #ffffff;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
   box-shadow: 0 8px 18px rgba(255, 122, 0, 0.2);
@@ -661,7 +694,7 @@ onPullDownRefresh(() => {
   gap: 9px;
   border-radius: 16px;
   padding: 8px;
-  background: #fffaf4;
+  background: linear-gradient(135deg, #fffaf4, #ffffff);
 }
 
 .product-image {
@@ -671,7 +704,7 @@ onPullDownRefresh(() => {
   flex: 0 0 54px;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 16px;
   background: linear-gradient(135deg, rgba(255, 122, 0, 0.1), rgba(255, 176, 32, 0.22)), #ffffff;
   color: #ff7a00;
   font-size: 10px;
@@ -725,7 +758,7 @@ onPullDownRefresh(() => {
 }
 
 .button-row .primary-button {
-  background: #ff7a00;
+  background: linear-gradient(135deg, #ff7a00, #ff9f1a);
   box-shadow: 0 10px 20px rgba(255, 122, 0, 0.24);
 }
 

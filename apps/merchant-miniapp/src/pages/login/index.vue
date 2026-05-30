@@ -714,7 +714,7 @@ async function enterApprovedStore(options: { force?: boolean; silent?: boolean }
       }
       return;
     }
-    saveMerchantSession({ token: result.token, store: result.store });
+    saveMerchantSession({ token: result.token, store: result.store, stores: result.stores });
     if (!options.silent) {
       uni.showToast({ title: "已进入商家端", icon: "success" });
     }
@@ -761,7 +761,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
       });
       return;
     }
-    saveMerchantSession({ token: result.token, store: result.store });
+    saveMerchantSession({ token: result.token, store: result.store, stores: result.stores });
     uni.showToast({ title: "登录成功", icon: "success" });
     setTimeout(() => {
       goAfterMerchantLogin(redirectUrl.value);

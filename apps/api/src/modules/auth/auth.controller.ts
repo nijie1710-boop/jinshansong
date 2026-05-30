@@ -56,6 +56,19 @@ export class AuthController {
     return this.authService.merchantLogin(body);
   }
 
+  @Get("auth/merchant/stores")
+  merchantStores(@Headers("x-merchant-token") merchantToken?: string) {
+    return this.authService.merchantStores(merchantToken);
+  }
+
+  @Post("auth/merchant/switch-store")
+  merchantSwitchStore(
+    @Headers("x-merchant-token") merchantToken: string | undefined,
+    @Body() body: { storeCode?: string }
+  ) {
+    return this.authService.merchantSwitchStore(merchantToken, body.storeCode);
+  }
+
   @Post("auth/merchant/application-status")
   merchantApplicationStatus(@Body() body: { phone?: string }) {
     return this.authService.merchantApplicationStatus(body.phone);

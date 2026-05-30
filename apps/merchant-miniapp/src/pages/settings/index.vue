@@ -8,6 +8,42 @@
       <text class="tag">{{ store.status === "OPEN" ? "营业中" : "暂停营业" }}</text>
     </view>
 
+    <view class="card section store-switch-section">
+      <view class="section-head">
+        <text class="section-title">门店切换</text>
+        <text class="tag">{{
+          storeOptions.length > 1 ? `${storeOptions.length} 家门店` : "当前门店"
+        }}</text>
+      </view>
+      <view v-if="storeOptions.length === 0" class="delivery-empty">
+        <text>登录通过审核的门店后可查看可管理门店</text>
+      </view>
+      <view
+        v-for="item in storeOptions"
+        :key="item.code"
+        class="store-option"
+        :class="{ active: item.code === store.code }"
+        @tap="switchStore(item)"
+      >
+        <view>
+          <text class="setting-title">{{ item.name }}</text>
+          <text class="muted">{{ item.address }}</text>
+        </view>
+        <text class="store-option-state">
+          {{
+            item.code === store.code
+              ? "使用中"
+              : switchingStoreCode === item.code
+                ? "切换中"
+                : "切换"
+          }}
+        </text>
+      </view>
+      <text class="store-switch-note">
+        同一个商家手机号可管理多个已审核门店；切换后商品、订单、对账都会读取当前门店数据。
+      </text>
+    </view>
+
     <view v-for="item in switches" :key="item.key" class="setting-row">
       <view>
         <text class="setting-title">{{ item.title }}</text>
@@ -64,7 +100,7 @@
 
     <button class="primary-button" @tap="goProductManage">管理门店商品</button>
     <button class="ghost-button" @tap="goSupport">平台支持与规则</button>
-    <button class="ghost-button" @tap="goLogin">切换登录门店</button>
+    <button class="danger-button" @tap="switchAccount">退出登录 / 切换账号</button>
   </view>
 </template>
 
@@ -72,7 +108,11 @@
 import { computed, onMounted, ref } from "vue";
 import {
   api,
+  clearMerchantSession,
   getCachedMerchantStore,
+  getCachedMerchantStores,
+  saveCachedMerchantStores,
+  saveMerchantSession,
   saveCachedMerchantStore,
   type MerchantStore
 } from "../../services/api";
@@ -96,7 +136,9 @@ const fallbackStore: MerchantStore = {
   deliveryReadiness: []
 };
 const store = ref<MerchantStore>(getCachedMerchantStore() ?? fallbackStore);
+const storeOptions = ref<MerchantStore[]>(initialStoreOptions());
 const savingKey = ref<SwitchKey | "">("");
+const switchingStoreCode = ref("");
 
 type SwitchKey = "acceptOrderSwitch" | "autoTransferSwitch" | "voiceReminderSwitch";
 
@@ -123,8 +165,17 @@ const switches = computed(() => [
   }
 ]);
 
-function goLogin() {
-  uni.navigateTo({ url: "/pages/login/index" });
+function dedupeStores(stores: MerchantStore[]) {
+  return Array.from(
+    new Map(stores.filter((item) => item.code).map((item) => [item.code, item])).values()
+  );
+}
+
+function initialStoreOptions() {
+  return dedupeStores([
+    ...(getCachedMerchantStores() || []),
+    ...(store.value.code ? [store.value] : [])
+  ]);
 }
 
 function goProductManage() {
@@ -138,6 +189,8 @@ function goSupport() {
 function syncStore(storeData: MerchantStore) {
   store.value = storeData;
   saveCachedMerchantStore(storeData);
+  storeOptions.value = dedupeStores([storeData, ...storeOptions.value]);
+  saveCachedMerchantStores(storeOptions.value);
 }
 
 function getSwitchValue(event: Event) {
@@ -162,13 +215,60 @@ async function handleSwitchChange(key: SwitchKey, event: Event) {
   }
 }
 
+async function loadStoreOptions() {
+  try {
+    const [storeData, stores] = await Promise.all([api.me(), api.stores()]);
+    storeOptions.value = dedupeStores([storeData, ...stores]);
+    saveCachedMerchantStores(storeOptions.value);
+    syncStore(storeData);
+  } catch {
+    storeOptions.value = dedupeStores(storeOptions.value);
+  }
+}
+
+async function switchStore(target: MerchantStore) {
+  if (!target.code || target.code === store.value.code || switchingStoreCode.value) {
+    return;
+  }
+
+  switchingStoreCode.value = target.code;
+  try {
+    const session = await api.switchStore(target.code);
+    saveMerchantSession(session);
+    store.value = session.store;
+    storeOptions.value = dedupeStores(session.stores?.length ? session.stores : [session.store]);
+    saveCachedMerchantStores(storeOptions.value);
+    uni.showToast({ title: `已切换到${session.store.name}`, icon: "none" });
+  } catch (error) {
+    uni.showToast({
+      title: error instanceof Error ? error.message : "门店切换失败",
+      icon: "none"
+    });
+  } finally {
+    switchingStoreCode.value = "";
+  }
+}
+
+function switchAccount() {
+  uni.showModal({
+    title: "切换账号",
+    content: "退出当前商家登录后，可重新使用其他微信或手机号登录。",
+    confirmText: "退出",
+    confirmColor: "#ff3b30",
+    success(result) {
+      if (!result.confirm) {
+        return;
+      }
+      clearMerchantSession();
+      store.value = fallbackStore;
+      storeOptions.value = [];
+      uni.reLaunch({ url: "/pages/login/index" });
+    }
+  });
+}
+
 onMounted(() => {
-  void api
-    .me()
-    .then((storeData) => {
-      syncStore(storeData);
-    })
-    .catch(() => undefined);
+  void loadStoreOptions();
 });
 </script>
 
@@ -219,6 +319,44 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.store-switch-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.store-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  border-radius: 16px;
+  padding: 12px;
+  background: #f7f8fa;
+}
+
+.store-option.active {
+  border-color: rgba(255, 122, 0, 0.24);
+  background: #fff7ed;
+}
+
+.store-option-state {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #ffffff;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.store-switch-note {
+  color: #999999;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .delivery-row {
@@ -272,7 +410,18 @@ onMounted(() => {
 }
 
 .settings-page > .ghost-button,
+.settings-page > .danger-button,
 .settings-page > .primary-button {
   width: 100%;
+}
+
+.danger-button {
+  height: 44px;
+  border: 1px solid rgba(255, 59, 48, 0.35);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #ff3b30;
+  font-size: 14px;
+  font-weight: 900;
 }
 </style>

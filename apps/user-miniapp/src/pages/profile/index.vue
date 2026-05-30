@@ -24,7 +24,10 @@
       </view>
     </view>
 
-    <button class="primary-button" @tap="goLogin">微信授权登录</button>
+    <view class="account-actions">
+      <button class="primary-button" @tap="refreshProfile">刷新我的数据</button>
+      <button class="danger-button" @tap="switchAccount">退出登录 / 切换账号</button>
+    </view>
   </view>
 </template>
 
@@ -33,6 +36,7 @@ import { computed, onMounted, ref } from "vue";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import {
   api,
+  clearUserSession,
   getCachedUserProfile,
   saveCachedUserProfile,
   type ApiCoupon,
@@ -65,10 +69,6 @@ const stats = computed(() => [
   { label: "分享奖励", value: String(profileStats.value.referralCount) }
 ]);
 
-function goLogin() {
-  uni.navigateTo({ url: "/pages/login/index" });
-}
-
 function handleMenu(item: MenuItem) {
   if (item.url) {
     uni.navigateTo({ url: item.url });
@@ -95,6 +95,32 @@ async function loadProfile() {
   } catch {
     uni.showToast({ title: "我的数据加载失败", icon: "none" });
   }
+}
+
+function refreshProfile() {
+  void loadProfile();
+}
+
+function switchAccount() {
+  uni.showModal({
+    title: "切换账号",
+    content: "退出当前用户登录后，可重新授权其他微信账号。",
+    confirmText: "退出",
+    confirmColor: "#ff3b30",
+    success(result) {
+      if (!result.confirm) {
+        return;
+      }
+      clearUserSession();
+      profile.value = null;
+      profileStats.value = {
+        orderCount: 0,
+        couponCount: 0,
+        referralCount: 0
+      };
+      uni.reLaunch({ url: "/pages/login/index" });
+    }
+  });
 }
 
 onMounted(loadProfile);
@@ -187,7 +213,24 @@ onPullDownRefresh(() => {
   border-bottom: 0;
 }
 
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account-actions > button,
 .profile-page > .primary-button {
   width: 100%;
+}
+
+.danger-button {
+  height: 44px;
+  border: 1px solid rgba(255, 59, 48, 0.35);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #ff3b30;
+  font-size: 14px;
+  font-weight: 900;
 }
 </style>
