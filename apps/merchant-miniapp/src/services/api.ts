@@ -194,9 +194,18 @@ export interface MerchantProduct {
   visibilityIssues?: string[];
   visibilityStatusText?: string;
   coverUrl: string;
+  skuImageUrl?: string;
   detailImageUrls: string[];
   imageTone: string;
 }
+
+export type MerchantSkuPayload = {
+  skuName?: string;
+  salePrice?: number;
+  settlePrice?: number;
+  stock?: number;
+  imageUrl?: string;
+};
 
 export type MerchantProductPayload = {
   categoryId?: string;
@@ -206,6 +215,8 @@ export type MerchantProductPayload = {
   salePrice: number;
   settlePrice?: number;
   stock: number;
+  imageUrl?: string;
+  skus?: MerchantSkuPayload[];
   coverUrl?: string;
   detailImageUrls?: string[];
 };
@@ -216,6 +227,7 @@ export type MerchantProductUpdatePayload = {
   settlePrice?: number;
   skuName?: string;
   description?: string;
+  imageUrl?: string;
   coverUrl?: string;
   detailImageUrls?: string[];
   status?: "ON_SALE" | "OFF_SALE";

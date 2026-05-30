@@ -76,6 +76,14 @@ export class ProductController {
       salePrice: number;
       settlePrice?: number;
       stock: number;
+      imageUrl?: string;
+      skus?: {
+        skuName?: string;
+        salePrice?: number;
+        settlePrice?: number;
+        stock?: number;
+        imageUrl?: string;
+      }[];
       coverUrl?: string;
       detailImageUrls?: string[];
     }
@@ -98,6 +106,7 @@ export class ProductController {
       settlePrice?: number;
       salePrice?: number;
       skuName?: string;
+      imageUrl?: string;
       description?: string;
       coverUrl?: string;
       detailImageUrls?: string[];

@@ -2,26 +2,26 @@
   <view class="page detail-page">
     <view
       class="product-visual"
-      :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
+      :style="{ background: displayImageUrl(activeCoverUrl) ? '#f7f8fa' : product.imageTone }"
     >
       <image
-        v-if="displayImageUrl(product.coverUrl)"
+        v-if="displayImageUrl(activeCoverUrl)"
         class="cover-image"
-        :src="displayImageUrl(product.coverUrl)"
+        :src="displayImageUrl(activeCoverUrl)"
         mode="aspectFill"
       />
-      <view v-if="!displayImageUrl(product.coverUrl)" class="visual-device"></view>
-      <text v-if="isHttpImageBlocked(product.coverUrl)" class="visual-brand visual-warning">
+      <view v-if="!displayImageUrl(activeCoverUrl)" class="visual-device"></view>
+      <text v-if="isHttpImageBlocked(activeCoverUrl)" class="visual-brand visual-warning">
         HTTPS 后显示
       </text>
-      <text v-else-if="!displayImageUrl(product.coverUrl)" class="visual-brand">金闪送</text>
+      <text v-else-if="!displayImageUrl(activeCoverUrl)" class="visual-brand">金闪送</text>
       <text class="visual-hint">门店现货 · 同城即达</text>
     </view>
 
     <view class="card product-summary">
       <view class="price-row">
-        <text class="price big-price">¥{{ product.price }}</text>
-        <text class="origin">¥{{ product.originPrice }}</text>
+        <text class="price big-price">¥{{ currentPrice }}</text>
+        <text class="origin">¥{{ currentOriginPrice }}</text>
       </view>
       <text class="product-title">{{ product.name }}</text>
       <view class="tag-row">
@@ -43,7 +43,7 @@
         <text class="label">库存</text>
         <text
           >附近 {{ product.storeCount || product.storeNames?.length || 1 }} 家门店现货
-          {{ product.stock }} 件</text
+          {{ currentStock }} 件</text
         >
       </view>
       <view class="info-row">
@@ -55,12 +55,20 @@
     <view class="card section">
       <text class="section-title">规格选择</text>
       <view class="chip-row">
-        <text v-for="spec in product.specs" :key="spec" class="chip active">{{ spec }}</text>
+        <text
+          v-for="sku in visibleSkus"
+          :key="sku.id"
+          class="chip sku-chip"
+          :class="{ active: sku.id === selectedSkuId, disabled: sku.stock <= 0 }"
+          @tap="selectSku(sku.id)"
+        >
+          {{ sku.name }}
+          <text class="sku-price">¥{{ sku.price }}</text>
+        </text>
       </view>
-      <view class="chip-row">
-        <text class="chip active">{{ product.color }}</text>
-        <text class="chip">黑色</text>
-      </view>
+      <text class="sku-stock"
+        >已选：{{ selectedSku?.name || "默认规格" }} · 库存 {{ currentStock }} 件</text
+      >
     </view>
 
     <view class="card section">
@@ -93,7 +101,7 @@
 
     <view class="mobile-fixed-bottom bottom-bar">
       <button class="ghost-button" @tap="addToCart">加入购物车</button>
-      <button class="primary-button" :disabled="product.stock <= 0" @tap="buyNow">立即购买</button>
+      <button class="primary-button" :disabled="currentStock <= 0" @tap="buyNow">立即购买</button>
     </view>
   </view>
 </template>
@@ -130,11 +138,32 @@ const emptyProduct: ApiProduct = {
 };
 
 const product = ref<ApiProduct>({ ...emptyProduct });
+const selectedSkuId = ref("");
 const services = ["门店现货", "极速配送", "正品保障", "售后无忧"];
 const storeNamesText = computed(() => {
   const names = product.value.storeNames ?? [];
   return names.length > 0 ? names.join("、") : "福州附近审核门店";
 });
+const visibleSkus = computed(() =>
+  product.value.skus?.length
+    ? product.value.skus
+    : [
+        {
+          id: product.value.skuId,
+          name: product.value.specs[0] || product.value.color || "默认规格",
+          imageUrl: product.value.coverUrl,
+          price: product.value.price,
+          stock: product.value.stock
+        }
+      ]
+);
+const selectedSku = computed(
+  () => visibleSkus.value.find((sku) => sku.id === selectedSkuId.value) ?? visibleSkus.value[0]
+);
+const activeCoverUrl = computed(() => selectedSku.value?.imageUrl || product.value.coverUrl);
+const currentPrice = computed(() => selectedSku.value?.price ?? product.value.price);
+const currentOriginPrice = computed(() => Math.round(currentPrice.value * 1.32 * 10) / 10);
+const currentStock = computed(() => selectedSku.value?.stock ?? product.value.stock);
 
 function displayImageUrl(url?: string) {
   const value = (url || "").trim();
@@ -155,7 +184,7 @@ function isHttpImageBlocked(url?: string) {
 }
 
 function buyNow() {
-  const skuId = product.value.skuId || product.value.skus?.[0]?.id;
+  const skuId = selectedSku.value?.id || product.value.skuId || product.value.skus?.[0]?.id;
   if (!skuId) {
     uni.showToast({ title: "商品暂无库存", icon: "none" });
     return;
@@ -165,8 +194,8 @@ function buyNow() {
 }
 
 function addToCart() {
-  const skuId = product.value.skuId || product.value.skus?.[0]?.id;
-  if (!skuId || product.value.stock <= 0) {
+  const skuId = selectedSku.value?.id || product.value.skuId || product.value.skus?.[0]?.id;
+  if (!skuId || currentStock.value <= 0) {
     uni.showToast({ title: "商品暂无库存", icon: "none" });
     return;
   }
@@ -177,8 +206,8 @@ function addToCart() {
     {
       skuId,
       productId: product.value.id,
-      name: product.value.name,
-      price: product.value.price,
+      name: `${product.value.name} ${selectedSku.value?.name || ""}`.trim(),
+      price: currentPrice.value,
       quantity: 1,
       addedAt: new Date().toISOString()
     },
@@ -188,15 +217,31 @@ function addToCart() {
   uni.showToast({ title: "已加入购物车", icon: "success" });
 }
 
+function selectSku(skuId: string) {
+  const sku = visibleSkus.value.find((item) => item.id === skuId);
+  if (!sku || sku.stock <= 0) {
+    uni.showToast({ title: "该规格暂无库存", icon: "none" });
+    return;
+  }
+  selectedSkuId.value = sku.id;
+}
+
+function syncSelectedSku() {
+  const firstSellable = visibleSkus.value.find((sku) => sku.stock > 0) ?? visibleSkus.value[0];
+  selectedSkuId.value = firstSellable?.id || "";
+}
+
 onLoad(async (query) => {
   const id = typeof query?.id === "string" ? query.id : "";
   try {
     if (id) {
       product.value = await api.product(id);
+      syncSelectedSku();
       return;
     }
     const products = await api.products();
     product.value = products[0] ?? product.value;
+    syncSelectedSku();
   } catch {
     product.value = { ...emptyProduct, name: "商品加载失败" };
     uni.showToast({ title: "商品加载失败", icon: "none" });
@@ -210,9 +255,7 @@ onLoad(async (query) => {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 90px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255, 176, 32, 0.16), transparent 24%),
-    #f7f8fa;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 176, 32, 0.16), transparent 24%), #f7f8fa;
 }
 
 .product-visual {
@@ -351,6 +394,28 @@ onLoad(async (query) => {
   background: #fff2e8;
   color: #ff7a00;
   font-weight: 700;
+}
+
+.sku-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sku-chip.disabled {
+  opacity: 0.45;
+}
+
+.sku-price {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sku-stock {
+  display: block;
+  margin-top: 9px;
+  color: #666666;
+  font-size: 12px;
 }
 
 .service-grid {

@@ -241,6 +241,93 @@
         </view>
       </view>
 
+      <view class="sku-config-card">
+        <view class="section-head compact">
+          <text class="field-label">多 SKU 规格</text>
+          <text class="sku-add" @tap="addSkuRow">+ 添加 SKU</text>
+        </view>
+        <view class="sku-base-row">
+          <view class="sku-thumb" @tap="chooseBaseSkuImage">
+            <image
+              v-if="displayImageUrl(form.imageUrl)"
+              class="sku-thumb-image"
+              :src="displayImageUrl(form.imageUrl)"
+              mode="aspectFill"
+            />
+            <text v-else>SKU图</text>
+          </view>
+          <view>
+            <text class="sku-row-title">SKU 1：{{ form.skuName || "默认规格" }}</text>
+            <text class="muted">
+              ¥{{ form.salePrice }} · 库存 {{ form.stock }} · 用户端可切换购买
+            </text>
+          </view>
+        </view>
+        <view v-for="row in skuRows" :key="row.id" class="sku-row-card">
+          <view class="sku-row-head">
+            <text class="sku-row-title">扩展 SKU</text>
+            <text class="remove-sku" @tap="removeSkuRow(row.id)">删除</text>
+          </view>
+          <view class="sku-row-body">
+            <view class="sku-thumb" @tap="chooseSkuRowImage(row.id)">
+              <image
+                v-if="displayImageUrl(row.imageUrl)"
+                class="sku-thumb-image"
+                :src="displayImageUrl(row.imageUrl)"
+                mode="aspectFill"
+              />
+              <text v-else>SKU图</text>
+            </view>
+            <view class="sku-inputs">
+              <input
+                v-model="row.skuName"
+                adjust-position
+                class="field-input"
+                confirm-type="next"
+                cursor-spacing="20"
+                maxlength="24"
+                placeholder="例如 1m 黑色"
+              />
+              <view class="sku-mini-grid">
+                <input
+                  v-model="row.salePrice"
+                  adjust-position
+                  class="field-input"
+                  confirm-type="next"
+                  cursor-spacing="20"
+                  maxlength="8"
+                  placeholder="售价"
+                  type="digit"
+                />
+                <input
+                  v-model="row.settlePrice"
+                  adjust-position
+                  class="field-input"
+                  confirm-type="next"
+                  cursor-spacing="20"
+                  maxlength="8"
+                  placeholder="结算"
+                  type="digit"
+                />
+                <input
+                  v-model="row.stock"
+                  adjust-position
+                  class="field-input"
+                  confirm-type="done"
+                  cursor-spacing="20"
+                  maxlength="5"
+                  placeholder="库存"
+                  type="number"
+                />
+              </view>
+            </view>
+          </view>
+        </view>
+        <text class="sku-help">
+          适合充电线长度/颜色、充电头功率、手机壳型号等多规格；用户端商品详情会展示这些 SKU。
+        </text>
+      </view>
+
       <view class="field">
         <text class="field-label">商品说明</text>
         <textarea
@@ -336,6 +423,23 @@
           <view v-else class="upload-inner">
             <text class="upload-plus">+</text>
             <text>{{ uploading ? "上传中..." : "上传主图" }}</text>
+          </view>
+        </view>
+
+        <view class="section-head compact">
+          <text class="field-label">当前 SKU 图</text>
+          <text class="muted">用户选择该 SKU 后展示</text>
+        </view>
+        <view class="sku-edit-image" @tap="chooseEditSkuImage">
+          <image
+            v-if="displayImageUrl(editForm.imageUrl)"
+            class="preview-image"
+            :src="displayImageUrl(editForm.imageUrl)"
+            mode="aspectFill"
+          />
+          <view v-else class="upload-inner">
+            <text class="upload-plus">+</text>
+            <text>{{ uploading ? "上传中..." : "上传 SKU 图" }}</text>
           </view>
         </view>
 
@@ -460,6 +564,7 @@ import {
   getMerchantToken,
   type MerchantCategory,
   type MerchantProduct,
+  type MerchantSkuPayload,
   type MerchantStore
 } from "../../services/api";
 
@@ -470,6 +575,14 @@ type Draft = {
 };
 
 type ProductFilter = "all" | "stock" | "available";
+type SkuFormRow = {
+  id: string;
+  skuName: string;
+  salePrice: string;
+  settlePrice: string;
+  stock: string;
+  imageUrl: string;
+};
 
 const categories = ref<MerchantCategory[]>([]);
 const products = ref<MerchantProduct[]>([]);
@@ -480,6 +593,7 @@ const uploading = ref(false);
 const drafts = ref<Record<string, Draft>>({});
 const editingStoreSkuId = ref("");
 const productFilter = ref<ProductFilter>("all");
+const skuRows = ref<SkuFormRow[]>([]);
 
 const form = reactive({
   name: "",
@@ -488,12 +602,14 @@ const form = reactive({
   salePrice: "19.9",
   settlePrice: "16.9",
   stock: "20",
+  imageUrl: "",
   coverUrl: "",
   detailImageUrls: [] as string[]
 });
 
 const editForm = reactive({
   description: "",
+  imageUrl: "",
   coverUrl: "",
   detailImageUrls: [] as string[]
 });
@@ -550,7 +666,8 @@ const formReadinessItems = computed(() => [
   { label: "销售价", ok: Number(form.salePrice) > 0 },
   { label: "结算价", ok: Number(form.settlePrice || form.salePrice) > 0 },
   { label: "库存", ok: Number(form.stock) > 0 },
-  { label: "商品说明", ok: Boolean(form.description.trim()) }
+  { label: "商品说明", ok: Boolean(form.description.trim()) },
+  { label: "SKU", ok: buildSkuPayload({ silent: true }).length > 0 }
 ]);
 
 function displayImageUrl(url?: string) {
@@ -592,6 +709,87 @@ function resetDrafts(items: MerchantProduct[]) {
 
 function handleCategoryChange(event: { detail?: { value?: number | string } }) {
   selectedCategoryIndex.value = Number(event.detail?.value ?? 0);
+}
+
+function newSkuRow(): SkuFormRow {
+  return {
+    id: `sku-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    skuName: "",
+    salePrice: "",
+    settlePrice: "",
+    stock: "",
+    imageUrl: ""
+  };
+}
+
+function addSkuRow() {
+  if (skuRows.value.length >= 11) {
+    uni.showToast({ title: "最多支持 12 个 SKU", icon: "none" });
+    return;
+  }
+  skuRows.value = [...skuRows.value, newSkuRow()];
+}
+
+function removeSkuRow(id: string) {
+  skuRows.value = skuRows.value.filter((row) => row.id !== id);
+}
+
+function buildSkuPayload(options: { silent?: boolean } = {}) {
+  const rows: SkuFormRow[] = [
+    {
+      id: "base",
+      skuName: form.skuName,
+      salePrice: form.salePrice,
+      settlePrice: form.settlePrice,
+      stock: form.stock,
+      imageUrl: form.imageUrl
+    },
+    ...skuRows.value
+  ];
+  const usedNames = new Set<string>();
+  const payload: MerchantSkuPayload[] = [];
+
+  for (const row of rows) {
+    const skuName = row.skuName.trim();
+    const salePrice = Number(row.salePrice);
+    const settlePrice = Number(row.settlePrice || row.salePrice);
+    const stock = Number(row.stock || 0);
+
+    if (!skuName && row.id !== "base") {
+      continue;
+    }
+    if (!skuName) {
+      if (!options.silent) uni.showToast({ title: "请填写默认规格", icon: "none" });
+      return [];
+    }
+    if (usedNames.has(skuName.toLowerCase())) {
+      if (!options.silent) uni.showToast({ title: `SKU 重复：${skuName}`, icon: "none" });
+      return [];
+    }
+    if (!Number.isFinite(salePrice) || salePrice <= 0) {
+      if (!options.silent) uni.showToast({ title: `${skuName} 销售价不正确`, icon: "none" });
+      return [];
+    }
+    if (!Number.isFinite(settlePrice) || settlePrice <= 0 || settlePrice > salePrice) {
+      if (!options.silent) uni.showToast({ title: `${skuName} 结算价不正确`, icon: "none" });
+      return [];
+    }
+    if (!Number.isFinite(stock) || stock < 0) {
+      if (!options.silent) uni.showToast({ title: `${skuName} 库存不正确`, icon: "none" });
+      return [];
+    }
+
+    usedNames.add(skuName.toLowerCase());
+    payload.push({
+      skuName,
+      salePrice,
+      settlePrice,
+      stock,
+      imageUrl: row.imageUrl
+    });
+  }
+
+  return payload;
 }
 
 function focusProductList(filter: ProductFilter) {
@@ -797,6 +995,58 @@ function chooseCoverImage() {
   });
 }
 
+function chooseBaseSkuImage() {
+  if (uploading.value) return;
+  uni.chooseImage({
+    count: 1,
+    sourceType: ["album", "camera"],
+    sizeType: ["compressed"],
+    success(result) {
+      const filePath = result.tempFilePaths[0];
+      if (!filePath) return;
+      uploading.value = true;
+      void uploadImage(filePath)
+        .then((url) => {
+          form.imageUrl = url;
+          uni.showToast({ title: "SKU 图已上传", icon: "success" });
+        })
+        .catch((error) => {
+          handleApiError(error, "SKU 图上传失败");
+        })
+        .finally(() => {
+          uploading.value = false;
+        });
+    }
+  });
+}
+
+function chooseSkuRowImage(id: string) {
+  if (uploading.value) return;
+  uni.chooseImage({
+    count: 1,
+    sourceType: ["album", "camera"],
+    sizeType: ["compressed"],
+    success(result) {
+      const filePath = result.tempFilePaths[0];
+      if (!filePath) return;
+      uploading.value = true;
+      void uploadImage(filePath)
+        .then((url) => {
+          skuRows.value = skuRows.value.map((row) =>
+            row.id === id ? { ...row, imageUrl: url } : row
+          );
+          uni.showToast({ title: "SKU 图已上传", icon: "success" });
+        })
+        .catch((error) => {
+          handleApiError(error, "SKU 图上传失败");
+        })
+        .finally(() => {
+          uploading.value = false;
+        });
+    }
+  });
+}
+
 function chooseDetailImages() {
   if (uploading.value) return;
   uni.chooseImage({
@@ -835,6 +1085,7 @@ function removeEditDetailImage(index: number) {
 function beginEditProduct(product: MerchantProduct) {
   editingStoreSkuId.value = product.storeSkuId;
   editForm.description = product.description;
+  editForm.imageUrl = product.skuImageUrl || "";
   editForm.coverUrl = product.coverUrl;
   editForm.detailImageUrls = [...product.detailImageUrls];
 }
@@ -842,8 +1093,34 @@ function beginEditProduct(product: MerchantProduct) {
 function cancelEditProduct() {
   editingStoreSkuId.value = "";
   editForm.description = "";
+  editForm.imageUrl = "";
   editForm.coverUrl = "";
   editForm.detailImageUrls = [];
+}
+
+function chooseEditSkuImage() {
+  if (uploading.value) return;
+  uni.chooseImage({
+    count: 1,
+    sourceType: ["album", "camera"],
+    sizeType: ["compressed"],
+    success(result) {
+      const filePath = result.tempFilePaths[0];
+      if (!filePath) return;
+      uploading.value = true;
+      void uploadImage(filePath)
+        .then((url) => {
+          editForm.imageUrl = url;
+          uni.showToast({ title: "SKU 图已上传", icon: "success" });
+        })
+        .catch((error) => {
+          handleApiError(error, "SKU 图上传失败");
+        })
+        .finally(() => {
+          uploading.value = false;
+        });
+    }
+  });
 }
 
 function chooseEditCoverImage() {
@@ -947,34 +1224,21 @@ function resetForm() {
   form.salePrice = "19.9";
   form.settlePrice = "16.9";
   form.stock = "20";
+  form.imageUrl = "";
   form.coverUrl = "";
   form.detailImageUrls = [];
+  skuRows.value = [];
 }
 
 async function submitProduct() {
   if (submitting.value) return;
-  const salePrice = Number(form.salePrice);
-  const settlePrice = Number(form.settlePrice || form.salePrice);
-  const stock = Number(form.stock);
+  const skuPayload = buildSkuPayload();
 
   if (!form.name.trim()) {
     uni.showToast({ title: "请填写商品名称", icon: "none" });
     return;
   }
-  if (!Number.isFinite(salePrice) || salePrice <= 0) {
-    uni.showToast({ title: "销售价需大于0", icon: "none" });
-    return;
-  }
-  if (!Number.isFinite(settlePrice) || settlePrice <= 0) {
-    uni.showToast({ title: "结算价需大于0", icon: "none" });
-    return;
-  }
-  if (settlePrice > salePrice) {
-    uni.showToast({ title: "结算价不能高于销售价", icon: "none" });
-    return;
-  }
-  if (!Number.isFinite(stock) || stock < 0) {
-    uni.showToast({ title: "库存格式不正确", icon: "none" });
+  if (skuPayload.length === 0) {
     return;
   }
 
@@ -985,9 +1249,11 @@ async function submitProduct() {
       name: form.name.trim(),
       skuName: form.skuName.trim() || "默认规格",
       description: form.description.trim(),
-      salePrice,
-      settlePrice,
-      stock,
+      salePrice: Number(form.salePrice),
+      settlePrice: Number(form.settlePrice || form.salePrice),
+      stock: Number(form.stock),
+      imageUrl: form.imageUrl,
+      skus: skuPayload,
       coverUrl: form.coverUrl,
       detailImageUrls: form.detailImageUrls
     });
@@ -1062,6 +1328,7 @@ async function saveProductMeta(product: MerchantProduct) {
       stock: Number(draft?.stock ?? product.stock),
       salePrice: Number(draft?.salePrice ?? product.salePrice),
       settlePrice: Number(draft?.settlePrice ?? product.settlePrice),
+      imageUrl: editForm.imageUrl,
       description: editForm.description.trim(),
       coverUrl: editForm.coverUrl,
       detailImageUrls: editForm.detailImageUrls
@@ -1489,6 +1756,112 @@ onPullDownRefresh(() => {
 .readiness-item.ok {
   background: #fff2e8;
   color: #ff7a00;
+}
+
+.sku-config-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px;
+  background: #f7f8fa;
+}
+
+.sku-add,
+.remove-sku {
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.remove-sku {
+  color: #ff3b30;
+}
+
+.sku-base-row,
+.sku-row-body,
+.sku-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sku-base-row,
+.sku-row-card {
+  border-radius: 16px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.sku-row-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.sku-row-head {
+  justify-content: space-between;
+}
+
+.sku-row-title {
+  display: block;
+  color: #111111;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.sku-thumb {
+  display: flex;
+  width: 58px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 58px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sku-thumb-image {
+  width: 100%;
+  height: 100%;
+}
+
+.sku-inputs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sku-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sku-mini-grid .field-input {
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.sku-help {
+  color: #8a4b13;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sku-edit-image {
+  position: relative;
+  overflow: hidden;
+  height: 96px;
+  border: 1px dashed rgba(255, 122, 0, 0.28);
+  border-radius: 18px;
+  background: #fffaf4;
 }
 
 .blocked-image-note,

@@ -60,6 +60,76 @@ function normalizeImageUrls(values?: string[]) {
     .slice(0, 8);
 }
 
+type MerchantSkuInput = {
+  skuName?: string;
+  salePrice?: number;
+  settlePrice?: number;
+  stock?: number;
+  imageUrl?: string;
+};
+
+function normalizeSkuInputs(
+  dto: {
+    skuName?: string;
+    salePrice: number;
+    settlePrice?: number;
+    stock: number;
+    imageUrl?: string;
+    skus?: MerchantSkuInput[];
+  },
+  fallbackName = "默认规格"
+) {
+  const rawItems =
+    dto.skus && dto.skus.length > 0
+      ? dto.skus
+      : [
+          {
+            skuName: dto.skuName,
+            salePrice: dto.salePrice,
+            settlePrice: dto.settlePrice,
+            stock: dto.stock,
+            imageUrl: dto.imageUrl
+          }
+        ];
+
+  const usedNames = new Set<string>();
+
+  return rawItems.slice(0, 12).map((item, index) => {
+    const name = item.skuName?.trim() || (index === 0 ? dto.skuName?.trim() : "") || fallbackName;
+    const salePrice = Number(item.salePrice ?? dto.salePrice);
+    const settlePrice = Number(
+      item.settlePrice ?? item.salePrice ?? dto.settlePrice ?? dto.salePrice
+    );
+    const stock = Math.max(0, Number(item.stock ?? dto.stock ?? 0));
+    const normalizedKey = name.toLowerCase();
+
+    if (usedNames.has(normalizedKey)) {
+      throw new BadRequestException(`SKU 规格名称重复：${name}`);
+    }
+    usedNames.add(normalizedKey);
+    if (!Number.isFinite(salePrice) || salePrice <= 0) {
+      throw new BadRequestException(`SKU ${name} 销售价必须大于 0`);
+    }
+    if (!Number.isFinite(settlePrice) || settlePrice <= 0) {
+      throw new BadRequestException(`SKU ${name} 结算价必须大于 0`);
+    }
+    if (settlePrice > salePrice) {
+      throw new BadRequestException(`SKU ${name} 结算价不能高于销售价`);
+    }
+    if (!Number.isFinite(stock)) {
+      throw new BadRequestException(`SKU ${name} 库存格式不正确`);
+    }
+
+    return {
+      name,
+      salePrice,
+      settlePrice,
+      stock,
+      imageUrl: item.imageUrl?.trim() || dto.imageUrl?.trim() || null
+    };
+  });
+}
+
 function arraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
 }
@@ -224,18 +294,28 @@ export class ProductService {
     });
 
     return products.flatMap((product, index) => {
-      const firstSku = product.skus[0];
+      const sellableSkus = product.skus.filter(
+        (sku) => sku.storeSkus.reduce((sum, item) => sum + item.stock, 0) > 0
+      );
+      const firstSku = sellableSkus[0];
       if (!firstSku) {
         return [];
       }
 
-      const stock = firstSku.storeSkus.reduce((sum, item) => sum + item.stock, 0);
+      const stock = sellableSkus.reduce(
+        (sum, sku) => sum + sku.storeSkus.reduce((skuSum, item) => skuSum + item.stock, 0),
+        0
+      );
       if (stock <= 0) {
         return [];
       }
       const price = money(firstSku.salePrice);
       const storeNames = Array.from(
-        new Set(firstSku.storeSkus.map((item) => item.store.name).filter(Boolean))
+        new Set(
+          sellableSkus
+            .flatMap((sku) => sku.storeSkus.map((item) => item.store.name))
+            .filter(Boolean)
+        )
       );
 
       return [
@@ -254,18 +334,19 @@ export class ProductService {
           storeCount: storeNames.length,
           grossMargin: margin(price, money(firstSku.defaultSettlePrice)),
           tags: ["新人首单", "30-60分钟送达"],
-          specs: product.skus.map((sku) => sku.name),
+          specs: sellableSkus.map((sku) => sku.name),
           color: firstSku.name.includes("黑") ? "黑色" : "白色",
           description: product.description ?? "",
-          coverUrl: assetUrl(product.coverUrl),
+          coverUrl: assetUrl(firstSku.imageUrl) || assetUrl(product.coverUrl),
           detailImageUrls: jsonStringArray(product.detailImageUrls).map(assetUrl).filter(Boolean),
           imageTone: productTone(index),
           storeNames,
           nearestStoreName: storeNames[0] ?? "附近门店",
-          skus: product.skus.map((sku) => ({
+          skus: sellableSkus.map((sku) => ({
             id: sku.id,
             code: sku.code,
             name: sku.name,
+            imageUrl: assetUrl(sku.imageUrl) || assetUrl(product.coverUrl),
             price: money(sku.salePrice),
             settlePrice: money(sku.defaultSettlePrice),
             stock: sku.storeSkus.reduce((sum, item) => sum + item.stock, 0)
@@ -317,6 +398,8 @@ export class ProductService {
       salePrice: number;
       settlePrice?: number;
       stock: number;
+      imageUrl?: string;
+      skus?: MerchantSkuInput[];
       coverUrl?: string;
       detailImageUrls?: string[];
     }
@@ -325,7 +408,7 @@ export class ProductService {
     const name = dto.name?.trim();
     const salePrice = Number(dto.salePrice);
     const settlePrice = Number(dto.settlePrice ?? dto.salePrice);
-    const stock = Math.max(0, Number(dto.stock ?? 0));
+    const skuInputs = normalizeSkuInputs(dto);
 
     if (!name) {
       throw new BadRequestException("商品名称不能为空");
@@ -359,20 +442,21 @@ export class ProductService {
         reviewRemark: "商家提交商品资料，待后台审核",
         reviewedAt: null,
         skus: {
-          create: {
-            code: `SKU-MERCHANT-${Date.now()}-${Math.floor(Math.random() * 90 + 10)}`,
-            name: dto.skuName?.trim() || "默认规格",
-            salePrice: decimal(salePrice),
-            defaultSettlePrice: decimal(settlePrice),
-            stock,
+          create: skuInputs.map((sku, index) => ({
+            code: `SKU-MERCHANT-${Date.now()}-${index}-${Math.floor(Math.random() * 90 + 10)}`,
+            name: sku.name,
+            imageUrl: sku.imageUrl,
+            salePrice: decimal(sku.salePrice),
+            defaultSettlePrice: decimal(sku.settlePrice),
+            stock: sku.stock,
             storeSkus: {
               create: {
                 storeId: store.id,
-                stock,
-                settlePrice: decimal(settlePrice)
+                stock: sku.stock,
+                settlePrice: decimal(sku.settlePrice)
               }
             }
-          }
+          }))
         }
       },
       include: {
@@ -398,6 +482,7 @@ export class ProductService {
       settlePrice?: number;
       salePrice?: number;
       skuName?: string;
+      imageUrl?: string;
       description?: string;
       coverUrl?: string;
       detailImageUrls?: string[];
@@ -469,10 +554,12 @@ export class ProductService {
     const nextCoverUrl = dto.coverUrl === undefined ? undefined : dto.coverUrl.trim() || null;
     const nextDetailImageUrls =
       dto.detailImageUrls === undefined ? undefined : normalizeImageUrls(dto.detailImageUrls);
+    const nextSkuImageUrl = dto.imageUrl === undefined ? undefined : dto.imageUrl.trim() || null;
     const contentChanged =
       (salePrice !== undefined && decimal(salePrice) !== decimal(money(existing.sku.salePrice))) ||
       (dto.skuName !== undefined &&
         (dto.skuName.trim() || existing.sku.name) !== existing.sku.name) ||
+      (nextSkuImageUrl !== undefined && nextSkuImageUrl !== (existing.sku.imageUrl ?? null)) ||
       (nextDescription !== undefined &&
         nextDescription !== (existingProduct.description ?? null)) ||
       (nextCoverUrl !== undefined && nextCoverUrl !== (existingProduct.coverUrl ?? null)) ||
@@ -490,12 +577,18 @@ export class ProductService {
         });
       }
 
-      if (salePrice !== undefined || dto.skuName !== undefined || nextStatus !== undefined) {
+      if (
+        salePrice !== undefined ||
+        dto.skuName !== undefined ||
+        dto.imageUrl !== undefined ||
+        nextStatus !== undefined
+      ) {
         await tx.sku.update({
           where: { id: existing.skuId },
           data: {
             ...(salePrice !== undefined ? { salePrice: decimal(salePrice) } : {}),
             ...(dto.skuName !== undefined ? { name: dto.skuName.trim() || existing.sku.name } : {}),
+            ...(dto.imageUrl !== undefined ? { imageUrl: nextSkuImageUrl } : {}),
             ...(nextStatus !== undefined ? { status: nextStatus } : {})
           }
         });
@@ -585,7 +678,8 @@ export class ProductService {
           visibleToUser: visibilityIssues.length === 0,
           visibilityIssues,
           visibilityStatusText: visibilityStatusText(visibilityIssues),
-          coverUrl: assetUrl(product.coverUrl),
+          coverUrl: assetUrl(sku.imageUrl) || assetUrl(product.coverUrl),
+          skuImageUrl: assetUrl(sku.imageUrl),
           detailImageUrls: jsonStringArray(product.detailImageUrls).map(assetUrl).filter(Boolean),
           storeNames,
           submittedAt: product.createdAt.toISOString(),
@@ -677,7 +771,8 @@ export class ProductService {
       categoryId: storeSku.sku.product.categoryId,
       categoryName: storeSku.sku.product.category?.name ?? "未分类",
       description: storeSku.sku.product.description ?? "",
-      coverUrl: assetUrl(storeSku.sku.product.coverUrl),
+      coverUrl: assetUrl(storeSku.sku.imageUrl) || assetUrl(storeSku.sku.product.coverUrl),
+      skuImageUrl: assetUrl(storeSku.sku.imageUrl),
       detailImageUrls: jsonStringArray(storeSku.sku.product.detailImageUrls)
         .map(assetUrl)
         .filter(Boolean),

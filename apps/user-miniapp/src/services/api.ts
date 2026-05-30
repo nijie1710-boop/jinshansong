@@ -26,7 +26,7 @@ export interface ApiProduct {
   imageTone: string;
   storeNames?: string[];
   nearestStoreName?: string;
-  skus?: { id: string; name: string; price: number; stock: number }[];
+  skus?: { id: string; name: string; imageUrl?: string; price: number; stock: number }[];
 }
 
 export interface ApiCategory {
