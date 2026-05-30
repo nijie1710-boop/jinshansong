@@ -33,7 +33,9 @@
     <view class="card section">
       <view class="info-row">
         <text class="label">配送</text>
-        <text>{{ product.nearestStoreName || "附近门店" }} 发货，30-60分钟送达</text>
+        <text
+          >{{ productStoreLine }} 发货，预计 {{ product.deliveryEtaMinutes || 45 }} 分钟送达</text
+        >
       </view>
       <view class="info-row">
         <text class="label">门店</text>
@@ -110,8 +112,10 @@
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { api, type ApiProduct } from "../../services/api";
+import { addCartItem } from "../../services/cart";
+import { createTapGuard, shortToast } from "../../services/interaction";
+import { cachedLocationQuery } from "../../services/location";
 
-const CART_STORAGE_KEY = "jss_cart_items";
 const emptyProduct: ApiProduct = {
   id: "",
   skuId: "",
@@ -139,10 +143,19 @@ const emptyProduct: ApiProduct = {
 
 const product = ref<ApiProduct>({ ...emptyProduct });
 const selectedSkuId = ref("");
+const canAddCart = createTapGuard(260);
+const canBuy = createTapGuard(520);
 const services = ["门店现货", "极速配送", "正品保障", "售后无忧"];
 const storeNamesText = computed(() => {
   const names = product.value.storeNames ?? [];
   return names.length > 0 ? names.join("、") : "福州附近审核门店";
+});
+const productStoreLine = computed(() => {
+  const storeName = product.value.nearestStoreName || "附近门店";
+  return product.value.nearestStoreDistanceKm === null ||
+    product.value.nearestStoreDistanceKm === undefined
+    ? storeName
+    : `${storeName} · ${product.value.nearestStoreDistanceKm}km`;
 });
 const visibleSkus = computed(() =>
   product.value.skus?.length
@@ -184,9 +197,10 @@ function isHttpImageBlocked(url?: string) {
 }
 
 function buyNow() {
+  if (!canBuy()) return;
   const skuId = selectedSku.value?.id || product.value.skuId || product.value.skus?.[0]?.id;
   if (!skuId) {
-    uni.showToast({ title: "商品暂无库存", icon: "none" });
+    shortToast("商品暂无库存");
     return;
   }
 
@@ -194,33 +208,31 @@ function buyNow() {
 }
 
 function addToCart() {
+  if (!canAddCart()) return;
   const skuId = selectedSku.value?.id || product.value.skuId || product.value.skus?.[0]?.id;
   if (!skuId || currentStock.value <= 0) {
-    uni.showToast({ title: "商品暂无库存", icon: "none" });
+    shortToast("商品暂无库存");
     return;
   }
 
-  const cached = uni.getStorageSync(CART_STORAGE_KEY);
-  const items = Array.isArray(cached) ? cached : [];
-  const nextItems = [
-    {
-      skuId,
-      productId: product.value.id,
-      name: `${product.value.name} ${selectedSku.value?.name || ""}`.trim(),
-      price: currentPrice.value,
-      quantity: 1,
-      addedAt: new Date().toISOString()
-    },
-    ...items.filter((item) => item?.skuId !== skuId)
-  ].slice(0, 20);
-  uni.setStorageSync(CART_STORAGE_KEY, nextItems);
-  uni.showToast({ title: "已加入购物车", icon: "success" });
+  addCartItem({
+    skuId,
+    productId: product.value.id,
+    name: product.value.name,
+    skuName: selectedSku.value?.name || "",
+    imageUrl: activeCoverUrl.value,
+    price: currentPrice.value,
+    stock: currentStock.value,
+    storeName: product.value.nearestStoreName || product.value.storeNames?.[0] || "",
+    quantity: 1
+  });
+  shortToast("已加入购物车", "success");
 }
 
 function selectSku(skuId: string) {
   const sku = visibleSkus.value.find((item) => item.id === skuId);
   if (!sku || sku.stock <= 0) {
-    uni.showToast({ title: "该规格暂无库存", icon: "none" });
+    shortToast("该规格暂无库存");
     return;
   }
   selectedSkuId.value = sku.id;
@@ -235,11 +247,11 @@ onLoad(async (query) => {
   const id = typeof query?.id === "string" ? query.id : "";
   try {
     if (id) {
-      product.value = await api.product(id);
+      product.value = await api.product(id, cachedLocationQuery());
       syncSelectedSku();
       return;
     }
-    const products = await api.products();
+    const products = await api.products(cachedLocationQuery());
     product.value = products[0] ?? product.value;
     syncSelectedSku();
   } catch {

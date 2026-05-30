@@ -4,6 +4,7 @@ const PUBLIC_PAGE_PATHS = new Set(["/pages/login/index", "/pages/legal/index"]);
 const TAB_PAGE_PATHS = new Set([
   "/pages/home/index",
   "/pages/category/index",
+  "/pages/cart/index",
   "/pages/order/list",
   "/pages/profile/index"
 ]);

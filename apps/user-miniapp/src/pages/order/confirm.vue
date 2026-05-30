@@ -21,29 +21,35 @@
     </view>
 
     <view class="card product-card">
-      <view
-        class="product-image"
-        :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
-      >
-        <image
-          v-if="displayImageUrl(product.coverUrl)"
-          class="product-cover"
-          :src="displayImageUrl(product.coverUrl)"
-          mode="aspectFill"
-        />
-        <view class="mini-device"></view>
-        <text v-if="isHttpImageBlocked(product.coverUrl)" class="image-note">HTTPS</text>
-        <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
+      <view class="section-head full-width">
+        <text class="section-title">商品明细</text>
+        <text class="muted">{{ fromCart ? "购物车结算" : "立即购买" }}</text>
       </view>
-      <view class="product-info">
-        <text class="product-name">{{ product.name }}</text>
-        <text class="muted">{{ product.color }} · x1</text>
-        <view class="tag-row">
-          <text class="tag">门店现货</text>
-          <text class="tag">30-60分钟</text>
+      <view v-for="item in confirmItems" :key="item.skuId" class="confirm-item">
+        <view
+          class="product-image"
+          :style="{ background: displayImageUrl(item.imageUrl) ? '#f7f8fa' : '#fff2e8' }"
+        >
+          <image
+            v-if="displayImageUrl(item.imageUrl)"
+            class="product-cover"
+            :src="displayImageUrl(item.imageUrl)"
+            mode="aspectFill"
+          />
+          <view class="mini-device"></view>
+          <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">HTTPS</text>
+          <text v-else-if="!displayImageUrl(item.imageUrl)">金闪送</text>
         </view>
+        <view class="product-info">
+          <text class="product-name">{{ item.name }}</text>
+          <text class="muted">{{ item.skuName || "默认规格" }} · x{{ item.quantity }}</text>
+          <view class="tag-row">
+            <text class="tag">门店现货</text>
+            <text class="tag">30-60分钟</text>
+          </view>
+        </view>
+        <text class="price">¥{{ lineAmount(item) }}</text>
       </view>
-      <text class="price">¥{{ quote.goodsAmount || product.price }}</text>
     </view>
 
     <view class="card section">
@@ -166,6 +172,13 @@ import {
   type ApiQuote,
   type PublicConfig
 } from "../../services/api";
+import {
+  clearCheckoutCartItems,
+  readCheckoutCartItems,
+  removeCartItems,
+  type CartItem
+} from "../../services/cart";
+import { cachedLocationQuery } from "../../services/location";
 
 const defaultServiceArea: PublicConfig["serviceArea"] = {
   city: "福州市",
@@ -203,6 +216,8 @@ const product = ref<ApiProduct>({
   skus: []
 });
 const skuId = ref(product.value.skuId);
+const fromCart = ref(false);
+const confirmItems = ref<CartItem[]>([]);
 const submitting = ref(false);
 const quoting = ref(false);
 const riderNo = ref("0086");
@@ -220,6 +235,9 @@ const quote = ref<ApiQuote>({
   selectedDelivery: null,
   deliveryOptions: []
 });
+const orderItems = computed(() =>
+  confirmItems.value.map((item) => ({ skuId: item.skuId, quantity: item.quantity }))
+);
 
 const maskedPhone = computed(() =>
   address.value.phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2")
@@ -251,14 +269,20 @@ async function loadConfirmData() {
   } catch {
     serviceArea.value = { ...defaultServiceArea };
   }
-  const [addresses, productData] = await Promise.all([api.addresses(), api.product(skuId.value)]);
+  const [addresses] = await Promise.all([api.addresses()]);
   address.value = addresses[0] ?? address.value;
-  product.value = productData;
+  if (fromCart.value) {
+    await loadCartConfirmItems();
+  } else {
+    const productData = await api.product(skuId.value, cachedLocationQuery());
+    product.value = productData;
+    confirmItems.value = [buildConfirmItem(productData, skuId.value, 1)];
+  }
   await refreshQuote();
 }
 
 async function refreshQuote() {
-  if (!address.value.id || !skuId.value || quoting.value) {
+  if (!address.value.id || orderItems.value.length === 0 || quoting.value) {
     return;
   }
   if (!isAddressInServiceArea.value) {
@@ -271,7 +295,7 @@ async function refreshQuote() {
   try {
     quote.value = await api.quote({
       addressId: address.value.id,
-      items: [{ skuId: skuId.value, quantity: 1 }],
+      items: orderItems.value,
       riderNo: riderNo.value.trim(),
       promoterCode: promoterCode.value.trim()
     });
@@ -282,6 +306,60 @@ async function refreshQuote() {
   } finally {
     quoting.value = false;
   }
+}
+
+function buildConfirmItem(productData: ApiProduct, targetSkuId: string, quantity: number) {
+  const sku =
+    productData.skus?.find((item) => item.id === targetSkuId) ?? productData.skus?.[0] ?? null;
+  return {
+    skuId: sku?.id || productData.skuId || targetSkuId,
+    productId: productData.id,
+    name: productData.name,
+    skuName: sku?.name || productData.specs?.[0] || productData.color,
+    imageUrl: sku?.imageUrl || productData.coverUrl,
+    price: sku?.price ?? productData.price,
+    stock: sku?.stock ?? productData.stock,
+    storeName: productData.nearestStoreName || productData.storeNames?.[0] || "",
+    quantity,
+    addedAt: new Date().toISOString()
+  };
+}
+
+async function loadCartConfirmItems() {
+  const cartItems = readCheckoutCartItems();
+  if (cartItems.length === 0) {
+    uni.showToast({ title: "请先选择购物车商品", icon: "none" });
+    setTimeout(() => {
+      uni.switchTab({ url: "/pages/cart/index" });
+    }, 400);
+    return;
+  }
+
+  const items = await Promise.all(
+    cartItems.map(async (item) => {
+      try {
+        const productData = await api.product(item.productId || item.skuId, cachedLocationQuery());
+        return buildConfirmItem(productData, item.skuId, item.quantity);
+      } catch {
+        return item;
+      }
+    })
+  );
+  confirmItems.value = items.filter((item) => item.skuId && item.quantity > 0);
+  product.value = confirmItems.value[0]
+    ? {
+        ...product.value,
+        id: confirmItems.value[0].productId,
+        skuId: confirmItems.value[0].skuId,
+        name: confirmItems.value[0].name,
+        price: confirmItems.value[0].price,
+        coverUrl: confirmItems.value[0].imageUrl || ""
+      }
+    : product.value;
+}
+
+function lineAmount(item: CartItem) {
+  return (item.price * item.quantity).toFixed(2);
 }
 
 function refreshQuoteSafely() {
@@ -317,7 +395,7 @@ async function submitOrder() {
   if (submitting.value) {
     return;
   }
-  if (!address.value.id || !skuId.value) {
+  if (!address.value.id || orderItems.value.length === 0) {
     uni.showToast({ title: "请确认地址和商品", icon: "none" });
     return;
   }
@@ -333,11 +411,15 @@ async function submitOrder() {
   try {
     const created = await api.createOrder({
       addressId: address.value.id,
-      items: [{ skuId: skuId.value, quantity: 1 }],
+      items: orderItems.value,
       riderNo: riderNo.value.trim(),
       promoterCode: promoterCode.value.trim()
     });
     const paid = await api.mockPay(created.id);
+    if (fromCart.value) {
+      removeCartItems(confirmItems.value.map((item) => item.skuId));
+      clearCheckoutCartItems();
+    }
     uni.showToast({ title: "支付成功", icon: "success" });
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/order/detail?id=${paid.id}` });
@@ -355,6 +437,7 @@ async function submitOrder() {
 
 onLoad((query) => {
   const querySkuId = typeof query?.skuId === "string" ? query.skuId : "";
+  fromCart.value = query?.fromCart === "1";
   if (querySkuId) {
     skuId.value = querySkuId;
   }
@@ -370,9 +453,7 @@ onLoad((query) => {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 92px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(255, 176, 32, 0.14), transparent 22%),
-    #f7f8fa;
+  background: radial-gradient(circle at 0% 0%, rgba(255, 176, 32, 0.14), transparent 22%), #f7f8fa;
 }
 
 .address-card,
@@ -472,8 +553,20 @@ onLoad((query) => {
 }
 
 .product-card {
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   align-items: flex-start;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.confirm-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .product-image {

@@ -116,47 +116,60 @@
         </view>
       </view>
 
-      <view class="field-label">商品主图</view>
-      <view class="image-upload" @tap="chooseCoverImage">
-        <image
-          v-if="displayImageUrl(form.coverUrl)"
-          class="preview-image"
-          :src="displayImageUrl(form.coverUrl)"
-          mode="aspectFill"
-        />
-        <view v-else-if="isHttpImageBlocked(form.coverUrl)" class="blocked-image-note">
-          <text>HTTPS 后显示</text>
-          <text>本地 HTTP 图片已保存</text>
+      <view class="image-editor-card">
+        <view class="image-editor-head">
+          <view>
+            <text class="field-label">图片素材</text>
+            <text class="image-editor-sub">主图用于列表首屏，详情图用于商品详情页展示。</text>
+          </view>
+          <text class="review-chip">提交审核</text>
         </view>
-        <view v-else class="upload-inner">
-          <text class="upload-plus">+</text>
-          <text>{{ uploading ? "上传中..." : "上传商品主图" }}</text>
-          <text class="upload-hint">用户端列表和详情页展示</text>
-        </view>
-      </view>
 
-      <view class="section-head compact">
-        <text class="field-label">详情图</text>
-        <text class="muted">最多 6 张</text>
-      </view>
-      <view class="detail-images">
-        <view v-for="(url, index) in form.detailImageUrls" :key="url" class="detail-image-item">
+        <view class="upload-tile cover-tile" @tap="chooseCoverImage">
           <image
-            v-if="displayImageUrl(url)"
-            class="detail-image"
-            :src="displayImageUrl(url)"
+            v-if="displayImageUrl(form.coverUrl)"
+            class="preview-image"
+            :src="displayImageUrl(form.coverUrl)"
             mode="aspectFill"
           />
-          <view v-else class="blocked-detail-note">HTTPS 后显示</view>
-          <text class="remove-image" @tap.stop="removeDetailImage(index)">×</text>
+          <view v-else-if="isHttpImageBlocked(form.coverUrl)" class="blocked-image-note">
+            <text>HTTPS 后显示</text>
+            <text>本地 HTTP 图片已保存</text>
+          </view>
+          <view v-else class="upload-inner">
+            <text class="upload-plus">+</text>
+            <text>{{ uploading ? "上传中..." : "上传商品主图" }}</text>
+            <text class="upload-hint">用户端列表和详情页展示</text>
+          </view>
+          <view class="upload-caption">
+            <text>商品主图</text>
+            <text>列表 / 详情首屏</text>
+          </view>
         </view>
-        <view
-          v-if="form.detailImageUrls.length < 6"
-          class="detail-upload"
-          @tap="chooseDetailImages"
-        >
-          <text>+</text>
-          <text>{{ uploading ? "上传中" : "详情图" }}</text>
+
+        <view class="section-head compact">
+          <text class="field-label">详情图</text>
+          <text class="muted">{{ form.detailImageUrls.length }} / {{ MAX_DETAIL_IMAGES }} 张</text>
+        </view>
+        <view class="detail-images">
+          <view v-for="(url, index) in form.detailImageUrls" :key="url" class="detail-image-item">
+            <image
+              v-if="displayImageUrl(url)"
+              class="detail-image"
+              :src="displayImageUrl(url)"
+              mode="aspectFill"
+            />
+            <view v-else class="blocked-detail-note">HTTPS 后显示</view>
+            <text class="remove-image" @tap.stop="removeDetailImage(index)">×</text>
+          </view>
+          <view
+            v-if="form.detailImageUrls.length < MAX_DETAIL_IMAGES"
+            class="detail-upload"
+            @tap="chooseDetailImages"
+          >
+            <text>+</text>
+            <text>{{ uploading ? "上传中" : "详情图" }}</text>
+          </view>
         </view>
       </view>
 
@@ -405,70 +418,84 @@
       </view>
 
       <view v-if="editingStoreSkuId === product.storeSkuId" class="meta-editor">
-        <view class="section-head compact">
-          <text class="field-label">商品主图</text>
-          <text class="muted">修改后需重新审核</text>
-        </view>
-        <view class="image-upload compact-upload" @tap="chooseEditCoverImage">
-          <image
-            v-if="displayImageUrl(editForm.coverUrl)"
-            class="preview-image"
-            :src="displayImageUrl(editForm.coverUrl)"
-            mode="aspectFill"
-          />
-          <view v-else-if="isHttpImageBlocked(editForm.coverUrl)" class="blocked-image-note">
-            <text>HTTPS 后显示</text>
-            <text>本地 HTTP 图片已保存</text>
+        <view class="image-editor-card">
+          <view class="image-editor-head">
+            <view>
+              <text class="field-label">图片与展示</text>
+              <text class="image-editor-sub">主图影响列表展示，SKU 图影响用户选择规格后的展示。</text>
+            </view>
+            <text class="review-chip">需重审</text>
           </view>
-          <view v-else class="upload-inner">
-            <text class="upload-plus">+</text>
-            <text>{{ uploading ? "上传中..." : "上传主图" }}</text>
-          </view>
-        </view>
 
-        <view class="section-head compact">
-          <text class="field-label">当前 SKU 图</text>
-          <text class="muted">用户选择该 SKU 后展示</text>
-        </view>
-        <view class="sku-edit-image" @tap="chooseEditSkuImage">
-          <image
-            v-if="displayImageUrl(editForm.imageUrl)"
-            class="preview-image"
-            :src="displayImageUrl(editForm.imageUrl)"
-            mode="aspectFill"
-          />
-          <view v-else class="upload-inner">
-            <text class="upload-plus">+</text>
-            <text>{{ uploading ? "上传中..." : "上传 SKU 图" }}</text>
-          </view>
-        </view>
+          <view class="cover-sku-grid">
+            <view class="upload-tile compact-upload" @tap="chooseEditCoverImage">
+              <image
+                v-if="displayImageUrl(editForm.coverUrl)"
+                class="preview-image"
+                :src="displayImageUrl(editForm.coverUrl)"
+                mode="aspectFill"
+              />
+              <view v-else-if="isHttpImageBlocked(editForm.coverUrl)" class="blocked-image-note">
+                <text>HTTPS 后显示</text>
+                <text>本地 HTTP 图片已保存</text>
+              </view>
+              <view v-else class="upload-inner">
+                <text class="upload-plus">+</text>
+                <text>{{ uploading ? "上传中..." : "上传主图" }}</text>
+              </view>
+              <view class="upload-caption">
+                <text>商品主图</text>
+                <text>列表/详情首屏</text>
+              </view>
+            </view>
 
-        <view class="section-head compact">
-          <text class="field-label">详情图</text>
-          <text class="muted">最多 6 张</text>
-        </view>
-        <view class="detail-images">
-          <view
-            v-for="(url, index) in editForm.detailImageUrls"
-            :key="url"
-            class="detail-image-item"
-          >
-            <image
-              v-if="displayImageUrl(url)"
-              class="detail-image"
-              :src="displayImageUrl(url)"
-              mode="aspectFill"
-            />
-            <view v-else class="blocked-detail-note">HTTPS 后显示</view>
-            <text class="remove-image" @tap.stop="removeEditDetailImage(index)">×</text>
+            <view class="upload-tile compact-upload" @tap="chooseEditSkuImage">
+              <image
+                v-if="displayImageUrl(editForm.imageUrl)"
+                class="preview-image"
+                :src="displayImageUrl(editForm.imageUrl)"
+                mode="aspectFill"
+              />
+              <view v-else class="upload-inner">
+                <text class="upload-plus">+</text>
+                <text>{{ uploading ? "上传中..." : "上传 SKU 图" }}</text>
+              </view>
+              <view class="upload-caption">
+                <text>当前 SKU 图</text>
+                <text>规格切换展示</text>
+              </view>
+            </view>
           </view>
-          <view
-            v-if="editForm.detailImageUrls.length < 6"
-            class="detail-upload"
-            @tap="chooseEditDetailImages"
-          >
-            <text>+</text>
-            <text>{{ uploading ? "上传中" : "详情图" }}</text>
+
+          <view class="section-head compact">
+            <text class="field-label">详情图</text>
+            <text class="muted">
+              {{ editForm.detailImageUrls.length }} / {{ MAX_DETAIL_IMAGES }} 张
+            </text>
+          </view>
+          <view class="detail-images">
+            <view
+              v-for="(url, index) in editForm.detailImageUrls"
+              :key="url"
+              class="detail-image-item"
+            >
+              <image
+                v-if="displayImageUrl(url)"
+                class="detail-image"
+                :src="displayImageUrl(url)"
+                mode="aspectFill"
+              />
+              <view v-else class="blocked-detail-note">HTTPS 后显示</view>
+              <text class="remove-image" @tap.stop="removeEditDetailImage(index)">×</text>
+            </view>
+            <view
+              v-if="editForm.detailImageUrls.length < MAX_DETAIL_IMAGES"
+              class="detail-upload"
+              @tap="chooseEditDetailImages"
+            >
+              <text>+</text>
+              <text>{{ uploading ? "上传中" : "详情图" }}</text>
+            </view>
           </view>
         </view>
 
@@ -587,6 +614,7 @@ type SkuFormRow = {
 const categories = ref<MerchantCategory[]>([]);
 const products = ref<MerchantProduct[]>([]);
 const merchantStore = ref<MerchantStore | null>(getCachedMerchantStore());
+const MAX_DETAIL_IMAGES = 12;
 const selectedCategoryIndex = ref(0);
 const submitting = ref(false);
 const uploading = ref(false);
@@ -1050,18 +1078,18 @@ function chooseSkuRowImage(id: string) {
 function chooseDetailImages() {
   if (uploading.value) return;
   uni.chooseImage({
-    count: Math.max(1, 6 - form.detailImageUrls.length),
+    count: Math.max(1, MAX_DETAIL_IMAGES - form.detailImageUrls.length),
     sourceType: ["album", "camera"],
     sizeType: ["compressed"],
     success(result) {
       const filePaths = ([] as string[])
         .concat(result.tempFilePaths as string[])
-        .slice(0, 6 - form.detailImageUrls.length);
+        .slice(0, MAX_DETAIL_IMAGES - form.detailImageUrls.length);
       if (filePaths.length === 0) return;
       uploading.value = true;
       void uploadImagesSequential(filePaths)
         .then((urls) => {
-          form.detailImageUrls = [...form.detailImageUrls, ...urls].slice(0, 6);
+          form.detailImageUrls = [...form.detailImageUrls, ...urls].slice(0, MAX_DETAIL_IMAGES);
           uni.showToast({ title: "详情图已上传", icon: "success" });
         })
         .catch((error) => {
@@ -1151,18 +1179,21 @@ function chooseEditCoverImage() {
 function chooseEditDetailImages() {
   if (uploading.value) return;
   uni.chooseImage({
-    count: Math.max(1, 6 - editForm.detailImageUrls.length),
+    count: Math.max(1, MAX_DETAIL_IMAGES - editForm.detailImageUrls.length),
     sourceType: ["album", "camera"],
     sizeType: ["compressed"],
     success(result) {
       const filePaths = ([] as string[])
         .concat(result.tempFilePaths as string[])
-        .slice(0, 6 - editForm.detailImageUrls.length);
+        .slice(0, MAX_DETAIL_IMAGES - editForm.detailImageUrls.length);
       if (filePaths.length === 0) return;
       uploading.value = true;
       void uploadImagesSequential(filePaths)
         .then((urls) => {
-          editForm.detailImageUrls = [...editForm.detailImageUrls, ...urls].slice(0, 6);
+          editForm.detailImageUrls = [...editForm.detailImageUrls, ...urls].slice(
+            0,
+            MAX_DETAIL_IMAGES
+          );
           uni.showToast({ title: "详情图已上传", icon: "success" });
         })
         .catch((error) => {
@@ -1631,6 +1662,47 @@ onPullDownRefresh(() => {
   justify-content: space-between;
 }
 
+.image-editor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(255, 122, 0, 0.08);
+  border-radius: 20px;
+  padding: 12px;
+  background: linear-gradient(180deg, #fffaf4 0%, #ffffff 100%);
+}
+
+.image-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.image-editor-sub {
+  display: block;
+  margin-top: 4px;
+  color: #99600f;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.review-chip {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.cover-sku-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .image-upload {
   position: relative;
   overflow: hidden;
@@ -1652,6 +1724,21 @@ onPullDownRefresh(() => {
   background: rgba(255, 122, 0, 0.08);
   transform: rotate(-14deg);
   content: "";
+}
+
+.upload-tile {
+  position: relative;
+  overflow: hidden;
+  height: 118px;
+  border: 1px dashed rgba(255, 122, 0, 0.28);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 84% 22%, rgba(255, 255, 255, 0.9), transparent 28%),
+    linear-gradient(135deg, rgba(255, 122, 0, 0.09), rgba(255, 176, 32, 0.2)), #fffaf4;
+}
+
+.cover-tile {
+  height: 132px;
 }
 
 .preview-image,
@@ -1682,6 +1769,31 @@ onPullDownRefresh(() => {
   color: #99600f;
   font-size: 11px;
   font-weight: 500;
+}
+
+.upload-caption {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-radius: 12px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #8a4b13;
+  font-size: 10px;
+  font-weight: 800;
+  backdrop-filter: blur(8px);
+}
+
+.upload-caption text:first-child {
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .upload-readiness-card {
@@ -1890,7 +2002,7 @@ onPullDownRefresh(() => {
 
 .detail-images {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2000,7 +2112,7 @@ onPullDownRefresh(() => {
 }
 
 .compact-upload {
-  height: 92px;
+  height: 112px;
 }
 
 .empty-card {

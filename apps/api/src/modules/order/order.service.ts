@@ -84,6 +84,85 @@ function decimal(value: number) {
   return money(value).toFixed(2);
 }
 
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+function coordinatesFromAddress(address: {
+  latitude: Prisma.Decimal | null;
+  longitude: Prisma.Decimal | null;
+}) {
+  if (!address.latitude || !address.longitude) {
+    return null;
+  }
+
+  const latitude = Number(address.latitude);
+  const longitude = Number(address.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
+
+function coordinatesFromOrder(order: {
+  receiverLatitude: Prisma.Decimal | null;
+  receiverLongitude: Prisma.Decimal | null;
+}) {
+  if (!order.receiverLatitude || !order.receiverLongitude) {
+    return null;
+  }
+
+  const latitude = Number(order.receiverLatitude);
+  const longitude = Number(order.receiverLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
+
+function roundDistance(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const radius = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return roundDistance(radius * c);
+}
+
+function storeDistanceKm(
+  coordinates: Coordinates | null,
+  store: { latitude: Prisma.Decimal | null; longitude: Prisma.Decimal | null }
+) {
+  if (!coordinates || !store.latitude || !store.longitude) {
+    return null;
+  }
+
+  return haversineKm(
+    coordinates.latitude,
+    coordinates.longitude,
+    Number(store.latitude),
+    Number(store.longitude)
+  );
+}
+
+function compareOptionalDistance(left: number | null, right: number | null) {
+  if (left === null && right === null) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return left - right;
+}
+
 function maskPhone(phone: string) {
   return phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
 }
@@ -836,8 +915,8 @@ export class OrderService {
 
   private async calculateQuote(userId: string, dto: QuoteRequest) {
     const items = this.normalizeItems(dto.items);
-    const matchedStore = await this.findMatchedStore(items, []);
     const address = await this.resolveAddress(userId, dto.addressId);
+    const matchedStore = await this.findMatchedStore(items, [], coordinatesFromAddress(address));
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const deliveryConfig = await this.systemConfig("delivery", {
       userDeliveryFee: 4,
@@ -957,7 +1036,8 @@ export class OrderService {
 
   private async findMatchedStore(
     items: { skuId: string; quantity: number }[],
-    excludedStoreIds: string[]
+    excludedStoreIds: string[],
+    receiverCoordinates: Coordinates | null = null
   ) {
     const stores = await this.prisma.store.findMany({
       where: {
@@ -987,6 +1067,20 @@ export class OrderService {
       orderBy: { code: "desc" }
     });
 
+    const candidates: {
+      store: (typeof stores)[number];
+      items: {
+        skuId: string;
+        productId: string;
+        productName: string;
+        skuName: string;
+        quantity: number;
+        salePrice: number;
+        settlePrice: number;
+      }[];
+      distanceKm: number | null;
+    }[] = [];
+
     for (const store of stores) {
       const matchedItems = items.map((item) => {
         const storeSku = store.storeSkus.find((candidate) => candidate.skuId === item.skuId);
@@ -1005,11 +1099,25 @@ export class OrderService {
       });
 
       if (matchedItems.every(Boolean)) {
-        return {
+        candidates.push({
           store,
-          items: matchedItems.filter((item): item is NonNullable<typeof item> => Boolean(item))
-        };
+          items: matchedItems.filter((item): item is NonNullable<typeof item> => Boolean(item)),
+          distanceKm: storeDistanceKm(receiverCoordinates, store)
+        });
       }
+    }
+
+    const matchedStore = candidates.sort(
+      (left, right) =>
+        compareOptionalDistance(left.distanceKm, right.distanceKm) ||
+        left.store.code.localeCompare(right.store.code)
+    )[0];
+
+    if (matchedStore) {
+      return {
+        store: matchedStore.store,
+        items: matchedStore.items
+      };
     }
 
     throw new BadRequestException("暂无可履约门店，请稍后重试");
@@ -1215,7 +1323,8 @@ export class OrderService {
     try {
       const nextStore = await this.findMatchedStore(
         order.items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
-        excludedStoreIds
+        excludedStoreIds,
+        coordinatesFromOrder(order)
       );
       const storeSettleAmount = money(
         nextStore.items.reduce((sum, item) => sum + item.settlePrice * item.quantity, 0)
@@ -1599,7 +1708,8 @@ export class OrderService {
     try {
       const nextStore = await this.findMatchedStore(
         order.items.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
-        excludedStoreIds
+        excludedStoreIds,
+        coordinatesFromOrder(order)
       );
       const storeSettleAmount = money(
         nextStore.items.reduce((sum, item) => sum + item.settlePrice * item.quantity, 0)

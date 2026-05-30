@@ -26,7 +26,19 @@ export interface ApiProduct {
   imageTone: string;
   storeNames?: string[];
   nearestStoreName?: string;
-  skus?: { id: string; name: string; imageUrl?: string; price: number; stock: number }[];
+  nearestStoreDistanceKm?: number | null;
+  deliveryEtaMinutes?: number;
+  matchedByLocation?: boolean;
+  serviceRadiusKm?: number;
+  skus?: {
+    id: string;
+    name: string;
+    imageUrl?: string;
+    price: number;
+    stock: number;
+    nearestStoreName?: string | null;
+    nearestStoreDistanceKm?: number | null;
+  }[];
 }
 
 export interface ApiCategory {
@@ -179,6 +191,13 @@ export type WechatLoginPayload = {
   nickname?: string;
 };
 
+export type ProductQuery = {
+  keyword?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+};
+
 export class ApiRequestError extends Error {
   statusCode?: number;
 
@@ -268,6 +287,28 @@ export function request<T>(
   });
 }
 
+function productQueryString(query: string | ProductQuery) {
+  const params: string[] = [];
+  const normalizedQuery = typeof query === "string" ? { keyword: query } : query;
+  const keyword = normalizedQuery.keyword?.trim();
+
+  if (keyword) {
+    params.push(`keyword=${encodeURIComponent(keyword)}`);
+  }
+  if (Number.isFinite(normalizedQuery.latitude)) {
+    params.push(`latitude=${encodeURIComponent(String(normalizedQuery.latitude))}`);
+  }
+  if (Number.isFinite(normalizedQuery.longitude)) {
+    params.push(`longitude=${encodeURIComponent(String(normalizedQuery.longitude))}`);
+  }
+  if (Number.isFinite(normalizedQuery.radiusKm)) {
+    params.push(`radiusKm=${encodeURIComponent(String(normalizedQuery.radiusKm))}`);
+  }
+
+  const value = params.join("&");
+  return value ? `?${value}` : "";
+}
+
 export const api = {
   publicConfig: () => request<PublicConfig>("/config/public"),
   mockLogin: () => request<UserSession>("/auth/user/mock-login", { method: "POST" }),
@@ -277,11 +318,10 @@ export const api = {
   coupons: () => request<ApiCoupon[]>("/coupons"),
   claimReferralCoupon: () => request<ApiCoupon>("/coupons/referral/mock-claim", { method: "POST" }),
   categories: () => request<ApiCategory[]>("/categories"),
-  products: (keyword = "") =>
-    request<ApiProduct[]>(
-      keyword.trim() ? `/products?keyword=${encodeURIComponent(keyword.trim())}` : "/products"
-    ),
-  product: (id: string) => request<ApiProduct>(`/products/${id}`),
+  products: (query: string | ProductQuery = "") =>
+    request<ApiProduct[]>(`/products${productQueryString(query)}`),
+  product: (id: string, query: ProductQuery = {}) =>
+    request<ApiProduct>(`/products/${id}${productQueryString(query)}`),
   addresses: () => request<ApiAddress[]>("/addresses"),
   address: (id: string) => request<ApiAddress>(`/addresses/${id}`),
   createAddress: (data: AddressPayload) =>

@@ -6,6 +6,104 @@ function money(value: unknown) {
   return Number(value ?? 0);
 }
 
+const DEFAULT_PRODUCT_RADIUS_KM = 8;
+const MAX_PRODUCT_RADIUS_KM = 30;
+
+type ProductListQuery = {
+  keyword?: string;
+  latitude?: string | number;
+  longitude?: string | number;
+  radiusKm?: string | number;
+};
+
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+function finiteNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function coordinatesFromQuery(query?: ProductListQuery | string) {
+  if (!query || typeof query === "string") {
+    return null;
+  }
+  const latitude = finiteNumber(query.latitude);
+  const longitude = finiteNumber(query.longitude);
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
+
+function radiusFromQuery(query?: ProductListQuery | string) {
+  if (!query || typeof query === "string") {
+    return DEFAULT_PRODUCT_RADIUS_KM;
+  }
+  const radius = finiteNumber(query.radiusKm);
+
+  if (radius === null || radius <= 0) {
+    return DEFAULT_PRODUCT_RADIUS_KM;
+  }
+
+  return Math.min(radius, MAX_PRODUCT_RADIUS_KM);
+}
+
+function roundDistance(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const radius = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return roundDistance(radius * c);
+}
+
+function storeDistanceKm(
+  coordinates: Coordinates | null,
+  store: { latitude: Prisma.Decimal | null; longitude: Prisma.Decimal | null }
+) {
+  if (!coordinates || !store.latitude || !store.longitude) {
+    return null;
+  }
+
+  return haversineKm(
+    coordinates.latitude,
+    coordinates.longitude,
+    Number(store.latitude),
+    Number(store.longitude)
+  );
+}
+
+function deliveryEtaMinutes(distanceKm: number | null) {
+  if (distanceKm === null) {
+    return 45;
+  }
+
+  return Math.min(75, Math.max(25, Math.round(25 + distanceKm * 6)));
+}
+
+function compareOptionalDistance(left: number | null, right: number | null) {
+  if (left === null && right === null) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return left - right;
+}
+
 function productTone(index: number) {
   const tones = [
     "linear-gradient(135deg, #f7f8fa, #ffffff)",
@@ -57,7 +155,7 @@ function normalizeImageUrls(values?: string[]) {
   return (values ?? [])
     .map((value) => value.trim())
     .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
 type MerchantSkuInput = {
@@ -193,6 +291,22 @@ function slugifyName(name: string) {
   }`;
 }
 
+type PublicStoreSku = Prisma.StoreSkuGetPayload<{
+  include: {
+    store: true;
+  };
+}> & {
+  distanceKm: number | null;
+};
+
+type PublicSku = Prisma.SkuGetPayload<{
+  include: {
+    storeSkus: {
+      include: { store: true };
+    };
+  };
+}>;
+
 @Injectable()
 export class ProductService {
   constructor(private readonly prisma: PrismaService) {}
@@ -223,8 +337,11 @@ export class ProductService {
     }));
   }
 
-  async listProducts(keyword?: string) {
-    const normalizedKeyword = keyword?.trim();
+  async listProducts(query?: ProductListQuery | string) {
+    const normalizedKeyword =
+      typeof query === "string" ? query.trim() : query?.keyword?.trim() || "";
+    const coordinates = coordinatesFromQuery(query);
+    const radiusKm = radiusFromQuery(query);
     const products = await this.prisma.product.findMany({
       where: {
         status: ProductStatus.ON_SALE,
@@ -293,80 +410,151 @@ export class ProductService {
       orderBy: [{ sort: "asc" }, { createdAt: "asc" }]
     });
 
-    return products.flatMap((product, index) => {
-      const sellableSkus = product.skus.filter(
-        (sku) => sku.storeSkus.reduce((sum, item) => sum + item.stock, 0) > 0
-      );
-      const firstSku = sellableSkus[0];
-      if (!firstSku) {
+    const mappedProducts = products.flatMap((product, index) => {
+      const sellableSkus = product.skus
+        .map((sku) => this.publicSkuView(sku, coordinates, radiusKm))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+      const firstSkuView = sellableSkus[0];
+      if (!firstSkuView) {
         return [];
       }
 
-      const stock = sellableSkus.reduce(
-        (sum, sku) => sum + sku.storeSkus.reduce((skuSum, item) => skuSum + item.stock, 0),
-        0
-      );
+      const stock = sellableSkus.reduce((sum, item) => sum + item.stock, 0);
       if (stock <= 0) {
         return [];
       }
-      const price = money(firstSku.salePrice);
-      const storeNames = Array.from(
-        new Set(
-          sellableSkus
-            .flatMap((sku) => sku.storeSkus.map((item) => item.store.name))
-            .filter(Boolean)
-        )
-      );
+
+      const price = money(firstSkuView.sku.salePrice);
+      const storeNames = this.sortedStoreNames(sellableSkus.flatMap((item) => item.storeSkus));
+      const nearestDistanceKm =
+        sellableSkus
+          .map((item) => item.nearestDistanceKm)
+          .filter((value): value is number => value !== null)
+          .sort((left, right) => left - right)[0] ?? null;
 
       return [
         {
           id: product.id,
-          skuId: firstSku.id,
+          skuId: firstSkuView.sku.id,
           slug: product.slug,
           name: product.name,
           categoryId: product.categoryId,
           categoryName: product.category?.name ?? "",
           price,
           originPrice: Math.round(price * 1.32 * 10) / 10,
-          settlePrice: money(firstSku.defaultSettlePrice),
+          settlePrice: money(firstSkuView.sku.defaultSettlePrice),
           sales: 0,
           stock,
           storeCount: storeNames.length,
-          grossMargin: margin(price, money(firstSku.defaultSettlePrice)),
-          tags: ["新人首单", "30-60分钟送达"],
-          specs: sellableSkus.map((sku) => sku.name),
-          color: firstSku.name.includes("黑") ? "黑色" : "白色",
+          grossMargin: margin(price, money(firstSkuView.sku.defaultSettlePrice)),
+          tags: [
+            "新人首单",
+            coordinates && nearestDistanceKm !== null ? `${nearestDistanceKm}km附近` : "附近门店",
+            `${deliveryEtaMinutes(nearestDistanceKm)}分钟达`
+          ],
+          specs: sellableSkus.map((item) => item.sku.name),
+          color: firstSkuView.sku.name.includes("黑") ? "黑色" : "白色",
           description: product.description ?? "",
-          coverUrl: assetUrl(firstSku.imageUrl) || assetUrl(product.coverUrl),
+          coverUrl: assetUrl(firstSkuView.sku.imageUrl) || assetUrl(product.coverUrl),
           detailImageUrls: jsonStringArray(product.detailImageUrls).map(assetUrl).filter(Boolean),
           imageTone: productTone(index),
           storeNames,
-          nearestStoreName: storeNames[0] ?? "附近门店",
-          skus: sellableSkus.map((sku) => ({
-            id: sku.id,
-            code: sku.code,
-            name: sku.name,
-            imageUrl: assetUrl(sku.imageUrl) || assetUrl(product.coverUrl),
-            price: money(sku.salePrice),
-            settlePrice: money(sku.defaultSettlePrice),
-            stock: sku.storeSkus.reduce((sum, item) => sum + item.stock, 0)
+          nearestStoreName: firstSkuView.nearestStoreName ?? storeNames[0] ?? "附近门店",
+          nearestStoreDistanceKm: nearestDistanceKm,
+          deliveryEtaMinutes: deliveryEtaMinutes(nearestDistanceKm),
+          matchedByLocation: Boolean(coordinates),
+          serviceRadiusKm: coordinates ? radiusKm : undefined,
+          skus: sellableSkus.map((item) => ({
+            id: item.sku.id,
+            code: item.sku.code,
+            name: item.sku.name,
+            imageUrl: assetUrl(item.sku.imageUrl) || assetUrl(product.coverUrl),
+            price: money(item.sku.salePrice),
+            settlePrice: money(item.sku.defaultSettlePrice),
+            stock: item.stock,
+            nearestStoreName: item.nearestStoreName,
+            nearestStoreDistanceKm: item.nearestDistanceKm
           }))
         }
       ];
     });
+
+    return coordinates
+      ? mappedProducts.sort(
+          (left, right) =>
+            compareOptionalDistance(left.nearestStoreDistanceKm, right.nearestStoreDistanceKm) ||
+            left.name.localeCompare(right.name, "zh-Hans-CN")
+        )
+      : mappedProducts;
   }
 
-  async getProduct(id: string) {
-    const products = await this.listProducts();
-    const product = products.find(
-      (item) => item.id === id || item.skuId === id || item.slug === id
-    );
+  async getProduct(id: string, query?: ProductListQuery | string) {
+    const products = await this.listProducts(query);
+    let product = products.find((item) => item.id === id || item.skuId === id || item.slug === id);
+
+    if (!product && coordinatesFromQuery(query)) {
+      product = (await this.listProducts()).find(
+        (item) => item.id === id || item.skuId === id || item.slug === id
+      );
+    }
 
     if (!product) {
       throw new NotFoundException("商品不存在或已下架");
     }
 
     return product;
+  }
+
+  private publicSkuView(sku: PublicSku, coordinates: Coordinates | null, radiusKm: number) {
+    const storeSkus = sku.storeSkus
+      .map((storeSku) => ({
+        ...storeSku,
+        distanceKm: storeDistanceKm(coordinates, storeSku.store)
+      }))
+      .filter(
+        (storeSku) =>
+          !coordinates || storeSku.distanceKm === null || storeSku.distanceKm <= radiusKm
+      )
+      .sort(
+        (left, right) =>
+          compareOptionalDistance(left.distanceKm, right.distanceKm) ||
+          left.store.name.localeCompare(right.store.name, "zh-Hans-CN")
+      );
+    const stock = storeSkus.reduce((sum, item) => sum + item.stock, 0);
+
+    if (stock <= 0) {
+      return null;
+    }
+
+    return {
+      sku,
+      storeSkus,
+      stock,
+      nearestStoreName: storeSkus[0]?.store.name ?? null,
+      nearestDistanceKm: storeSkus[0]?.distanceKm ?? null
+    };
+  }
+
+  private sortedStoreNames(storeSkus: PublicStoreSku[]) {
+    const names = new Map<string, number | null>();
+
+    for (const storeSku of storeSkus) {
+      const existingDistance = names.get(storeSku.store.name);
+      if (
+        !names.has(storeSku.store.name) ||
+        compareOptionalDistance(storeSku.distanceKm, existingDistance ?? null) < 0
+      ) {
+        names.set(storeSku.store.name, storeSku.distanceKm);
+      }
+    }
+
+    return [...names.entries()]
+      .sort(
+        ([leftName, leftDistance], [rightName, rightDistance]) =>
+          compareOptionalDistance(leftDistance, rightDistance) ||
+          leftName.localeCompare(rightName, "zh-Hans-CN")
+      )
+      .map(([name]) => name);
   }
 
   async listMerchantProducts(storeCode?: string) {

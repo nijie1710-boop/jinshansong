@@ -85,7 +85,9 @@
 
     <view class="section-head">
       <text class="section-title">{{ searchKeyword ? "搜索结果" : "推荐商品" }}</text>
-      <text class="muted">{{ searchKeyword ? `关键词：${searchKeyword}` : "30-60分钟送达" }}</text>
+      <text class="muted">{{
+        searchKeyword ? `关键词：${searchKeyword}` : "按当前位置匹配附近门店"
+      }}</text>
     </view>
 
     <view class="product-grid">
@@ -123,8 +125,8 @@
         </view>
         <view class="product-body">
           <text class="product-name">{{ product.name }}</text>
-          <text class="store-line">{{ product.nearestStoreName || "附近门店" }}</text>
-          <text class="stock-line">现货 {{ product.stock }} 件 · 福州即时达</text>
+          <text class="store-line">{{ productStoreLine(product) }}</text>
+          <text class="stock-line">{{ productEtaLine(product) }}</text>
           <view class="tag-row">
             <text class="tag">新人价</text>
             <text class="tag">30-60分钟</text>
@@ -134,7 +136,7 @@
               <text class="price">¥{{ product.price }}</text>
               <text class="origin">¥{{ product.originPrice }}</text>
             </view>
-            <button class="cart-button" @tap.stop="buyProduct(product.skuId)">+</button>
+            <button class="cart-button" @tap.stop="addProductToCart(product)">+</button>
           </view>
         </view>
       </view>
@@ -146,8 +148,13 @@
 import { computed, onMounted, ref } from "vue";
 import { onPullDownRefresh } from "@dcloudio/uni-app";
 import { api, type ApiCategory, type ApiProduct } from "../../services/api";
-
-const LOCATION_CACHE_KEY = "jss_home_location";
+import { addCartItem } from "../../services/cart";
+import { createTapGuard, shortToast } from "../../services/interaction";
+import {
+  cachedLocationQuery,
+  readCachedLocation,
+  writeCachedLocation
+} from "../../services/location";
 
 const categories = ref<ApiCategory[]>([]);
 const products = ref<ApiProduct[]>([]);
@@ -155,6 +162,8 @@ const searchKeyword = ref("");
 const currentCity = ref("福州市");
 const currentDistrict = ref("台江区");
 const currentLocationName = ref("本地数码闪购");
+const canAddCart = createTapGuard(260);
+const canNavigate = createTapGuard(420);
 
 const promises = [
   { icon: "盾", title: "正品保障" },
@@ -217,20 +226,26 @@ function isHttpImageBlocked(url?: string) {
   return false;
 }
 
+function productStoreLine(product: ApiProduct) {
+  const storeName = product.nearestStoreName || "附近门店";
+  return product.nearestStoreDistanceKm === null || product.nearestStoreDistanceKm === undefined
+    ? storeName
+    : `${storeName} · ${product.nearestStoreDistanceKm}km`;
+}
+
+function productEtaLine(product: ApiProduct) {
+  return `现货 ${product.stock} 件 · ${product.deliveryEtaMinutes || 45}分钟达`;
+}
+
 function loadCachedLocation() {
-  const cached = uni.getStorageSync(LOCATION_CACHE_KEY);
-  if (!cached || typeof cached !== "object") {
+  const cached = readCachedLocation();
+  if (!cached) {
     return;
   }
 
-  const location = cached as {
-    city?: string;
-    district?: string;
-    name?: string;
-  };
-  currentCity.value = location.city || "福州市";
-  currentDistrict.value = location.district || "台江区";
-  currentLocationName.value = location.name || "本地数码闪购";
+  currentCity.value = cached.city || "福州市";
+  currentDistrict.value = cached.district || "台江区";
+  currentLocationName.value = cached.name || "本地数码闪购";
 }
 
 function saveHomeLocation(location: {
@@ -243,7 +258,7 @@ function saveHomeLocation(location: {
   currentCity.value = location.city;
   currentDistrict.value = location.district;
   currentLocationName.value = location.name;
-  uni.setStorageSync(LOCATION_CACHE_KEY, location);
+  writeCachedLocation(location);
 }
 
 function parseFuzhouLocation(result: {
@@ -279,6 +294,7 @@ function chooseHomeLocation() {
           latitude: result.latitude,
           longitude: result.longitude
         });
+        void loadHomeData(searchKeyword.value);
         uni.showToast({ title: "已记录当前位置", icon: "none" });
       },
       fail() {
@@ -300,6 +316,7 @@ function chooseHomeLocation() {
         latitude: result.latitude,
         longitude: result.longitude
       });
+      void loadHomeData(searchKeyword.value);
       uni.showToast({ title: "已切换定位", icon: "success" });
     },
     fail() {
@@ -324,23 +341,44 @@ function searchProducts() {
 }
 
 function openCategory(categoryId: string) {
+  if (!canNavigate()) return;
   uni.switchTab({ url: "/pages/category/index" });
   uni.setStorageSync("jss_active_category_id", categoryId);
 }
 
 function openProduct(id: string) {
+  if (!canNavigate()) return;
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` });
 }
 
-function buyProduct(skuId: string) {
-  uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
+function addProductToCart(product: ApiProduct) {
+  if (!canAddCart()) return;
+  const sku = product.skus?.find((item) => item.id === product.skuId) ?? product.skus?.[0];
+  const skuId = sku?.id || product.skuId;
+  if (!skuId || product.stock <= 0) {
+    shortToast("商品暂无库存");
+    return;
+  }
+
+  addCartItem({
+    skuId,
+    productId: product.id,
+    name: product.name,
+    skuName: sku?.name || product.specs?.[0] || product.color,
+    imageUrl: sku?.imageUrl || product.coverUrl,
+    price: sku?.price ?? product.price,
+    stock: sku?.stock ?? product.stock,
+    storeName: product.nearestStoreName || product.storeNames?.[0] || "",
+    quantity: 1
+  });
+  shortToast("已加入购物车", "success");
 }
 
 async function loadHomeData(keyword = "") {
   try {
     const [categoryData, productData] = await Promise.all([
       api.categories(),
-      api.products(keyword.trim())
+      api.products({ keyword: keyword.trim(), ...cachedLocationQuery() })
     ]);
     categories.value = categoryData;
     products.value = productData;
@@ -368,9 +406,7 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background:
-    radial-gradient(circle at 18% 0%, rgba(255, 176, 32, 0.18), transparent 26%),
-    #f7f8fa;
+  background: radial-gradient(circle at 18% 0%, rgba(255, 176, 32, 0.18), transparent 26%), #f7f8fa;
 }
 
 .topbar,

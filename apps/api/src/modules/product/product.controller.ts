@@ -3,6 +3,13 @@ import { ProductStatus } from "@prisma/client";
 import { AuthService } from "../auth/auth.service";
 import { ProductService } from "./product.service";
 
+type ProductQueryDto = {
+  keyword?: string;
+  latitude?: string;
+  longitude?: string;
+  radiusKm?: string;
+};
+
 @Controller()
 export class ProductController {
   constructor(
@@ -16,13 +23,13 @@ export class ProductController {
   }
 
   @Get("products")
-  listProducts(@Query("keyword") keyword?: string) {
-    return this.productService.listProducts(keyword);
+  listProducts(@Query() query: ProductQueryDto) {
+    return this.productService.listProducts(query);
   }
 
   @Get("products/:id")
-  getProduct(@Param("id") id: string) {
-    return this.productService.getProduct(id);
+  getProduct(@Param("id") id: string, @Query() query: ProductQueryDto) {
+    return this.productService.getProduct(id, query);
   }
 
   @Get("admin/products")

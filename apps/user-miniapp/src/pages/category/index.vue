@@ -29,7 +29,7 @@
       <view class="list">
         <view class="feature-card">
           <text class="section-title">数码配件</text>
-          <text class="muted">附近品胜门店 · 30-60分钟送达</text>
+          <text class="muted">按当前位置匹配最近有货门店</text>
         </view>
 
         <view v-if="filteredProducts.length === 0" class="empty-card">
@@ -64,15 +64,17 @@
           </view>
           <view class="product-info">
             <text class="product-name">{{ product.name }}</text>
-            <text class="store-line">{{ product.nearestStoreName || "附近门店" }}</text>
-            <text class="muted">库存 {{ product.stock }} · 已售 {{ product.sales }}</text>
+            <text class="store-line">{{ productStoreLine(product) }}</text>
+            <text class="muted"
+              >库存 {{ product.stock }} · {{ product.deliveryEtaMinutes || 45 }}分钟达</text
+            >
             <view class="tag-row">
               <text class="tag">30-60分钟</text>
               <text class="tag">门店现货</text>
             </view>
             <view class="bottom">
               <text class="price">¥{{ product.price }}</text>
-              <button class="add-button" @tap.stop="buyProduct(product.skuId)">+</button>
+              <button class="add-button" @tap.stop="addProductToCart(product)">+</button>
             </view>
           </view>
         </view>
@@ -85,12 +87,17 @@
 import { computed, onMounted, ref } from "vue";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api, type ApiCategory, type ApiProduct } from "../../services/api";
+import { addCartItem } from "../../services/cart";
+import { createTapGuard, shortToast } from "../../services/interaction";
+import { cachedLocationQuery } from "../../services/location";
 
 const categories = ref<ApiCategory[]>([]);
 const products = ref<ApiProduct[]>([]);
 const activeCategoryId = ref(categories.value[0]?.id ?? "");
 const keyword = ref("");
 const ACTIVE_CATEGORY_STORAGE_KEY = "jss_active_category_id";
+const canAddCart = createTapGuard(260);
+const canNavigate = createTapGuard(420);
 
 const filteredProducts = computed(() => {
   const categoryMatched = activeCategoryId.value
@@ -137,6 +144,13 @@ function isHttpImageBlocked(url?: string) {
   return false;
 }
 
+function productStoreLine(product: ApiProduct) {
+  const storeName = product.nearestStoreName || "附近门店";
+  return product.nearestStoreDistanceKm === null || product.nearestStoreDistanceKm === undefined
+    ? storeName
+    : `${storeName} · ${product.nearestStoreDistanceKm}km`;
+}
+
 function setKeyword(event: Event) {
   keyword.value = String((event as Event & { detail?: { value?: string } }).detail?.value ?? "");
 }
@@ -151,11 +165,31 @@ function searchProducts() {
 }
 
 function openProduct(id: string) {
+  if (!canNavigate()) return;
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` });
 }
 
-function buyProduct(skuId: string) {
-  uni.navigateTo({ url: `/pages/order/confirm?skuId=${skuId}` });
+function addProductToCart(product: ApiProduct) {
+  if (!canAddCart()) return;
+  const sku = product.skus?.find((item) => item.id === product.skuId) ?? product.skus?.[0];
+  const skuId = sku?.id || product.skuId;
+  if (!skuId || product.stock <= 0) {
+    shortToast("商品暂无库存");
+    return;
+  }
+
+  addCartItem({
+    skuId,
+    productId: product.id,
+    name: product.name,
+    skuName: sku?.name || product.specs?.[0] || product.color,
+    imageUrl: sku?.imageUrl || product.coverUrl,
+    price: sku?.price ?? product.price,
+    stock: sku?.stock ?? product.stock,
+    storeName: product.nearestStoreName || product.storeNames?.[0] || "",
+    quantity: 1
+  });
+  shortToast("已加入购物车", "success");
 }
 
 function applyStoredCategory() {
@@ -173,7 +207,7 @@ async function loadCategoryData(searchKeyword = "") {
   try {
     const [categoryData, productData] = await Promise.all([
       api.categories(),
-      api.products(searchKeyword.trim())
+      api.products({ keyword: searchKeyword.trim(), ...cachedLocationQuery() })
     ]);
     categories.value = categoryData;
     products.value = productData;
@@ -190,7 +224,10 @@ async function loadCategoryData(searchKeyword = "") {
 }
 
 onMounted(loadCategoryData);
-onShow(applyStoredCategory);
+onShow(() => {
+  applyStoredCategory();
+  void loadCategoryData(keyword.value);
+});
 
 onPullDownRefresh(() => {
   void loadCategoryData(keyword.value).finally(() => {
