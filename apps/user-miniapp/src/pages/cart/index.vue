@@ -98,6 +98,7 @@ import {
   type CartItem
 } from "../../services/cart";
 import { createTapGuard, shortToast } from "../../services/interaction";
+import { cachedLocationQuery } from "../../services/location";
 
 const cartItems = ref<CartItem[]>([]);
 const selectedSkuIds = ref<string[]>([]);
@@ -163,7 +164,7 @@ async function refreshCartFromProducts() {
   const refreshed = await Promise.all(
     items.map(async (item) => {
       try {
-        const product: ApiProduct = await api.product(item.productId || item.skuId);
+        const product: ApiProduct = await api.product(item.productId || item.skuId, cachedLocationQuery());
         const sku = product.skus?.find((entry) => entry.id === item.skuId);
         if (!sku) {
           return { ...item, stock: 0 };

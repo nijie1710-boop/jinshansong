@@ -44,12 +44,24 @@
       </view>
     </view>
 
-    <view v-if="hasMerchantAccess" class="current-store-card" @tap="goSettings">
+    <view v-if="hasMerchantAccess" class="current-store-card">
       <view>
         <text class="current-store-label">当前上架门店</text>
         <text class="current-store-name">{{ merchantStore?.name || "已审核门店" }}</text>
       </view>
-      <text class="current-store-action">切换门店 ›</text>
+      <view class="current-store-actions">
+        <picker
+          :range="storeOptionNames"
+          :value="selectedStoreIndex"
+          :disabled="storeOptions.length <= 1 || Boolean(switchingStoreCode)"
+          @change="handleStorePickerChange"
+        >
+          <view class="current-store-action">
+            {{ storeOptions.length > 1 ? "切换门店" : "单门店" }}
+          </view>
+        </picker>
+        <text class="current-store-link" @tap="goSettings">设置</text>
+      </view>
     </view>
 
     <view v-if="hasMerchantAccess" class="card audit-flow-card">
@@ -588,7 +600,10 @@ import {
   api,
   clearMerchantSession,
   getCachedMerchantStore,
+  getCachedMerchantStores,
   getMerchantToken,
+  saveCachedMerchantStores,
+  saveMerchantSession,
   type MerchantCategory,
   type MerchantProduct,
   type MerchantSkuPayload,
@@ -614,10 +629,12 @@ type SkuFormRow = {
 const categories = ref<MerchantCategory[]>([]);
 const products = ref<MerchantProduct[]>([]);
 const merchantStore = ref<MerchantStore | null>(getCachedMerchantStore());
+const storeOptions = ref<MerchantStore[]>(initialStoreOptions());
 const MAX_DETAIL_IMAGES = 12;
 const selectedCategoryIndex = ref(0);
 const submitting = ref(false);
 const uploading = ref(false);
+const switchingStoreCode = ref("");
 const drafts = ref<Record<string, Draft>>({});
 const editingStoreSkuId = ref("");
 const productFilter = ref<ProductFilter>("all");
@@ -645,6 +662,17 @@ const editForm = reactive({
 const categoryNames = computed(() => categories.value.map((category) => category.name));
 const selectedCategoryLabel = computed(
   () => categoryNames.value[selectedCategoryIndex.value] ?? "选择分类"
+);
+const storeOptionNames = computed(() =>
+  storeOptions.value.length > 0
+    ? storeOptions.value.map((store) => store.name)
+    : [merchantStore.value?.name || "当前门店"]
+);
+const selectedStoreIndex = computed(() =>
+  Math.max(
+    0,
+    storeOptions.value.findIndex((store) => store.code === merchantStore.value?.code)
+  )
 );
 const totalStock = computed(() => products.value.reduce((sum, product) => sum + product.stock, 0));
 const availableCount = computed(() => products.value.filter((product) => product.available).length);
@@ -697,6 +725,19 @@ const formReadinessItems = computed(() => [
   { label: "商品说明", ok: Boolean(form.description.trim()) },
   { label: "SKU", ok: buildSkuPayload({ silent: true }).length > 0 }
 ]);
+
+function dedupeStores(stores: MerchantStore[]) {
+  return Array.from(
+    new Map(stores.filter((item) => item.code).map((item) => [item.code, item])).values()
+  );
+}
+
+function initialStoreOptions() {
+  return dedupeStores([
+    ...(getCachedMerchantStores() || []),
+    ...(merchantStore.value?.code ? [merchantStore.value] : [])
+  ]);
+}
 
 function displayImageUrl(url?: string) {
   const value = (url || "").trim();
@@ -1215,9 +1256,18 @@ async function loadProducts() {
   }
 
   try {
-    const [categoryData, productData] = await Promise.all([api.categories(), api.products()]);
+    const [categoryData, productData, manageableStores] = await Promise.all([
+      api.categories(),
+      api.products(),
+      api.stores().catch(() => [] as MerchantStore[])
+    ]);
     categories.value = categoryData.length > 0 ? categoryData : categories.value;
     products.value = productData;
+    storeOptions.value = dedupeStores([
+      ...(merchantStore.value ? [merchantStore.value] : []),
+      ...manageableStores
+    ]);
+    saveCachedMerchantStores(storeOptions.value);
     resetDrafts(productData);
   } catch (error) {
     handleApiError(error, "门店商品读取失败");
@@ -1230,6 +1280,33 @@ function goLogin() {
 
 function goSettings() {
   uni.switchTab({ url: "/pages/settings/index" });
+}
+
+async function handleStorePickerChange(event: { detail?: { value?: number | string } }) {
+  const index = Number(event.detail?.value ?? 0);
+  const target = storeOptions.value[index];
+  if (!target?.code || target.code === merchantStore.value?.code || switchingStoreCode.value) {
+    return;
+  }
+
+  switchingStoreCode.value = target.code;
+  try {
+    const session = await api.switchStore(target.code);
+    saveMerchantSession(session);
+    merchantStore.value = session.store;
+    storeOptions.value = dedupeStores(session.stores?.length ? session.stores : [session.store]);
+    saveCachedMerchantStores(storeOptions.value);
+    editingStoreSkuId.value = "";
+    productFilter.value = "all";
+    products.value = [];
+    resetDrafts([]);
+    await loadProducts();
+    uni.showToast({ title: `已切换到${session.store.name}`, icon: "none" });
+  } catch (error) {
+    handleApiError(error, "门店切换失败");
+  } finally {
+    switchingStoreCode.value = "";
+  }
 }
 
 function productStatusLabel(product: MerchantProduct) {
@@ -1529,6 +1606,13 @@ onPullDownRefresh(() => {
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
 }
 
+.current-store-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .current-store-label,
 .current-store-name {
   display: block;
@@ -1548,7 +1632,19 @@ onPullDownRefresh(() => {
 
 .current-store-action {
   flex-shrink: 0;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: #fff2e8;
   color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.current-store-link {
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: #f7f8fa;
+  color: #666666;
   font-size: 12px;
   font-weight: 900;
 }

@@ -55,18 +55,33 @@
     </view>
 
     <view class="card section">
-      <text class="section-title">规格选择</text>
-      <view class="chip-row">
-        <text
+      <view class="section-head">
+        <text class="section-title">规格选择</text>
+        <text class="section-subtitle">SKU 图片跟随规格切换</text>
+      </view>
+      <view class="sku-grid">
+        <view
           v-for="sku in visibleSkus"
           :key="sku.id"
-          class="chip sku-chip"
+          class="sku-card"
           :class="{ active: sku.id === selectedSkuId, disabled: sku.stock <= 0 }"
           @tap="selectSku(sku.id)"
         >
-          {{ sku.name }}
-          <text class="sku-price">¥{{ sku.price }}</text>
-        </text>
+          <view class="sku-thumb" :style="{ background: displayImageUrl(sku.imageUrl) ? '#f7f8fa' : '#fff2e8' }">
+            <image
+              v-if="displayImageUrl(sku.imageUrl)"
+              class="sku-thumb-image"
+              :src="displayImageUrl(sku.imageUrl)"
+              mode="aspectFill"
+            />
+            <text v-else>{{ isHttpImageBlocked(sku.imageUrl) ? "HTTPS" : "SKU" }}</text>
+          </view>
+          <view class="sku-copy">
+            <text class="sku-name">{{ sku.name }}</text>
+            <text class="sku-price">¥{{ sku.price }}</text>
+            <text class="sku-left">{{ sku.stock > 0 ? `库存 ${sku.stock}` : "暂售罄" }}</text>
+          </view>
+        </view>
       </view>
       <text class="sku-stock"
         >已选：{{ selectedSku?.name || "默认规格" }} · 库存 {{ currentStock }} 件</text
@@ -102,6 +117,7 @@
     </view>
 
     <view class="mobile-fixed-bottom bottom-bar">
+      <button class="cart-shortcut" @tap="openCart">购物车</button>
       <button class="ghost-button" @tap="addToCart">加入购物车</button>
       <button class="primary-button" :disabled="currentStock <= 0" @tap="buyNow">立即购买</button>
     </view>
@@ -229,6 +245,10 @@ function addToCart() {
   shortToast("已加入购物车", "success");
 }
 
+function openCart() {
+  uni.switchTab({ url: "/pages/cart/index" });
+}
+
 function selectSku(skuId: string) {
   const sku = visibleSkus.value.find((item) => item.id === skuId);
   if (!sku || sku.stock <= 0) {
@@ -342,7 +362,6 @@ onLoad(async (query) => {
 
 .price-row,
 .tag-row,
-.chip-row,
 .info-row,
 .bottom-bar {
   display: flex;
@@ -369,8 +388,7 @@ onLoad(async (query) => {
   line-height: 1.35;
 }
 
-.tag-row,
-.chip-row {
+.tag-row {
   flex-wrap: wrap;
   gap: 7px;
 }
@@ -408,26 +426,95 @@ onLoad(async (query) => {
   font-weight: 700;
 }
 
-.sku-chip {
+.section-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.sku-chip.disabled {
-  opacity: 0.45;
+.section-subtitle {
+  color: #999999;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sku-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sku-card {
+  display: flex;
+  min-width: 0;
+  gap: 9px;
+  border: 1px solid #eeeeee;
+  border-radius: 16px;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.sku-card.active {
+  border-color: rgba(255, 122, 0, 0.48);
+  background: #fff7ed;
+  box-shadow: 0 8px 18px rgba(255, 122, 0, 0.08);
+}
+
+.sku-card.disabled {
+  opacity: 0.48;
+}
+
+.sku-thumb {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 48px;
+  overflow: hidden;
+  border-radius: 14px;
+  color: #ff7a00;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.sku-thumb-image {
+  width: 100%;
+  height: 100%;
+}
+
+.sku-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sku-name {
+  overflow: hidden;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sku-price {
-  font-size: 11px;
+  color: #ff3b30;
+  font-size: 13px;
   font-weight: 900;
+}
+
+.sku-left,
+.sku-stock {
+  color: #666666;
+  font-size: 11px;
 }
 
 .sku-stock {
   display: block;
   margin-top: 9px;
-  color: #666666;
-  font-size: 12px;
 }
 
 .service-grid {
@@ -488,7 +575,17 @@ onLoad(async (query) => {
   box-shadow: 0 -10px 30px rgba(17, 17, 17, 0.08);
 }
 
-.bottom-bar button {
+.bottom-bar button:not(.cart-shortcut) {
   flex: 1;
+}
+
+.cart-shortcut {
+  width: 62px;
+  border: 1px solid #ffe0bf;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
 }
 </style>

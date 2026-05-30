@@ -28,6 +28,11 @@ export default async function ProductsPage() {
   const visibleCount = products.filter((product) => product.visibleToUser).length;
   const onSaleCount = products.filter((product) => product.status === "ON_SALE").length;
   const totalStock = products.reduce((sum, product) => sum + product.stock, 0);
+  const sellableAfterReviewCount = products.filter(
+    (product) =>
+      product.reviewStatus === "APPROVED" && product.status === "ON_SALE" && product.stock > 0
+  ).length;
+  const missingImageCount = products.filter((product) => !product.coverUrl).length;
   const pendingProducts = sortedByReview(products).filter(
     (product) => product.reviewStatus === "PENDING"
   );
@@ -92,6 +97,32 @@ export default async function ProductsPage() {
             index="3"
             title="用户购买"
             description="用户下单后，订单会进入对应商家端待接单。"
+            tone="green"
+          />
+        </div>
+      </Panel>
+
+      <Panel title="三端互通检查">
+        <div className="grid gap-3 md:grid-cols-3">
+          <DataFlowCard
+            title="商家端提交"
+            value={`${products.length} 个 SKU`}
+            description="商家上传主图、SKU 图、详情图和价格后写入同一套商品库。"
+            tone="orange"
+          />
+          <DataFlowCard
+            title="后台审核"
+            value={`${pendingCount} 个待处理`}
+            description={
+              missingImageCount > 0
+                ? `${missingImageCount} 个商品缺主图，审核前建议补齐。`
+                : "图片、价格、库存和说明已进入审核检查。"
+            }
+          />
+          <DataFlowCard
+            title="用户端可售"
+            value={`${visibleCount} 个可见`}
+            description={`${sellableAfterReviewCount} 个已通过审核、上架且有库存，用户端可购买。`}
             tone="green"
           />
         </div>
@@ -229,6 +260,13 @@ export default async function ProductsPage() {
 }
 
 function PendingProductCard({ product }: { product: AdminProduct }) {
+  const warnings = [
+    !product.coverUrl ? "缺少主图" : "",
+    (product.detailImageUrls?.length ?? 0) === 0 ? "未传详情图" : "",
+    product.stock <= 0 ? "库存为 0" : "",
+    typeof product.grossMargin === "number" && product.grossMargin < 0 ? "单件毛利为负" : ""
+  ].filter(Boolean);
+
   return (
     <div className="rounded-2xl border border-[#FFB020]/45 bg-[#FFF7ED] p-4 shadow-sm">
       <div className="flex gap-3">
@@ -268,6 +306,15 @@ function PendingProductCard({ product }: { product: AdminProduct }) {
           {product.reviewRemark}
         </div>
       ) : null}
+      {warnings.length ? (
+        <div className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-xs text-[#A14A00]">
+          审核关注：{warnings.join("、")}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-xs text-emerald-700">
+          基础资料完整，通过后会同步到用户端商品详情和购物车。
+        </div>
+      )}
       <div className="mt-3 space-y-2">
         <form action={approveProductAction} className="flex gap-2">
           <input type="hidden" name="productId" value={product.productId || product.id} />
@@ -294,6 +341,33 @@ function PendingProductCard({ product }: { product: AdminProduct }) {
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function DataFlowCard({
+  title,
+  value,
+  description,
+  tone = "default"
+}: {
+  title: string;
+  value: string;
+  description: string;
+  tone?: "default" | "orange" | "green";
+}) {
+  const toneClass =
+    tone === "orange"
+      ? "border-[#FFB020]/30 bg-[#FFF7ED]"
+      : tone === "green"
+        ? "border-emerald-100 bg-emerald-50"
+        : "border-black/5 bg-[#F7F8FA]";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <div className="text-sm font-semibold text-[#666666]">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#111111]">{value}</div>
+      <div className="mt-2 text-sm leading-6 text-[#666666]">{description}</div>
     </div>
   );
 }

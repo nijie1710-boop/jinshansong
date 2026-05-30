@@ -87,6 +87,28 @@ export default async function StoresPage() {
         </div>
       </Panel>
 
+      <Panel title="商家端互通检查">
+        <div className="grid gap-3 md:grid-cols-3">
+          <StoreFlowCard
+            title="商家提交入驻"
+            value={`${applications.length} 条申请`}
+            description="商家端提交后会直接进入这里，待审核数量应与商家端查询状态一致。"
+            tone="orange"
+          />
+          <StoreFlowCard
+            title="审核生成门店"
+            value={`${stores.length} 家门店`}
+            description="审核通过后自动生成门店编码，商家端才能登录、切换门店和上架商品。"
+          />
+          <StoreFlowCard
+            title="配送可营业"
+            value={`${deliveryReadyCount} 家就绪`}
+            description="正式配送平台门店 ID 填完后，订单闭环可从模拟配送切到真实配送。"
+            tone="green"
+          />
+        </div>
+      </Panel>
+
       <Panel title="入驻审核">
         {applications.length === 0 ? (
           <div className="rounded-xl bg-[#F7F8FA] p-5 text-sm text-[#666666]">暂无商家入驻申请</div>
@@ -389,6 +411,33 @@ function FlowStep({
         {title}
       </div>
       <div className="mt-2 leading-6">{description}</div>
+    </div>
+  );
+}
+
+function StoreFlowCard({
+  title,
+  value,
+  description,
+  tone = "default"
+}: {
+  title: string;
+  value: string;
+  description: string;
+  tone?: "default" | "orange" | "green";
+}) {
+  const toneClass =
+    tone === "orange"
+      ? "border-[#FFB020]/30 bg-[#FFF7ED]"
+      : tone === "green"
+        ? "border-emerald-100 bg-emerald-50"
+        : "border-black/5 bg-[#F7F8FA]";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <div className="text-sm font-semibold text-[#666666]">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#111111]">{value}</div>
+      <div className="mt-2 text-sm leading-6 text-[#666666]">{description}</div>
     </div>
   );
 }

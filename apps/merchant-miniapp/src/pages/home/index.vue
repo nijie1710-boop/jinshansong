@@ -24,6 +24,23 @@
       <button class="primary-button" @tap="goLogin">去申请入驻</button>
     </view>
 
+    <view v-if="hasMerchantAccess" class="store-switch-card">
+      <view>
+        <text class="store-switch-label">当前经营门店</text>
+        <text class="store-switch-name">{{ storeName }}</text>
+      </view>
+      <picker
+        :range="storeOptionNames"
+        :value="selectedStoreIndex"
+        :disabled="storeOptions.length <= 1 || Boolean(switchingStoreCode)"
+        @change="handleStorePickerChange"
+      >
+        <view class="store-switch-action">
+          {{ storeOptions.length > 1 ? "切换门店" : "单门店" }}
+        </view>
+      </picker>
+    </view>
+
     <view v-if="hasMerchantAccess" class="stats-grid">
       <view
         v-for="item in stats"
@@ -126,7 +143,10 @@ import { onHide, onPullDownRefresh, onShow, onUnload } from "@dcloudio/uni-app";
 import {
   api,
   getCachedMerchantStore,
+  getCachedMerchantStores,
+  saveCachedMerchantStores,
   saveCachedMerchantStore,
+  saveMerchantSession,
   type MerchantOrder,
   type MerchantStats,
   type MerchantStore
@@ -134,7 +154,9 @@ import {
 
 const orders = ref<MerchantOrder[]>([]);
 const store = ref<MerchantStore | null>(getCachedMerchantStore());
+const storeOptions = ref<MerchantStore[]>(initialStoreOptions());
 const savingAcceptSwitch = ref(false);
+const switchingStoreCode = ref("");
 const merchantStats = ref<MerchantStats>({
   pending: 0,
   todayOrders: 0,
@@ -177,6 +199,28 @@ const stats = computed(() => [
   { label: "待发货", value: String(merchantStats.value.waitingShipment), target: "accepted" },
   { label: "待结算", value: `¥${merchantStats.value.pendingSettlement}`, target: "reconciliation" }
 ]);
+const storeOptionNames = computed(() =>
+  storeOptions.value.length > 0 ? storeOptions.value.map((item) => item.name) : [storeName.value]
+);
+const selectedStoreIndex = computed(() =>
+  Math.max(
+    0,
+    storeOptions.value.findIndex((item) => item.code === store.value?.code)
+  )
+);
+
+function dedupeStores(stores: MerchantStore[]) {
+  return Array.from(
+    new Map(stores.filter((item) => item.code).map((item) => [item.code, item])).values()
+  );
+}
+
+function initialStoreOptions() {
+  return dedupeStores([
+    ...(getCachedMerchantStores() || []),
+    ...(store.value?.code ? [store.value] : [])
+  ]);
+}
 
 function formatCountdown(seconds: number) {
   const min = Math.floor(seconds / 60)
@@ -222,6 +266,8 @@ function handleStatTap(item: { target: string }) {
 function syncStore(storeData: MerchantStore) {
   store.value = storeData;
   saveCachedMerchantStore(storeData);
+  storeOptions.value = dedupeStores([storeData, ...storeOptions.value]);
+  saveCachedMerchantStores(storeOptions.value);
 }
 
 async function loadMerchantHome() {
@@ -240,18 +286,50 @@ async function loadMerchantHome() {
   }
 
   try {
-    const [storeData, pendingOrders, statsData] = await Promise.all([
+    const [storeData, pendingOrders, statsData, manageableStores] = await Promise.all([
       api.me(),
       api.pendingOrders(),
-      api.stats()
+      api.stats(),
+      api.stores().catch(() => [] as MerchantStore[])
     ]);
     notifyNewPendingOrders(pendingOrders, Boolean(storeData.voiceReminderSwitch));
     syncStore(storeData);
+    storeOptions.value = dedupeStores([storeData, ...manageableStores]);
+    saveCachedMerchantStores(storeOptions.value);
     orders.value = pendingOrders;
     merchantStats.value = statsData;
   } catch {
     orders.value = [];
     uni.showToast({ title: "商家数据加载失败", icon: "none" });
+  }
+}
+
+async function handleStorePickerChange(event: { detail?: { value?: number | string } }) {
+  const index = Number(event.detail?.value ?? 0);
+  const target = storeOptions.value[index];
+  if (!target?.code || target.code === store.value?.code || switchingStoreCode.value) {
+    return;
+  }
+
+  switchingStoreCode.value = target.code;
+  try {
+    const session = await api.switchStore(target.code);
+    saveMerchantSession(session);
+    storeOptions.value = dedupeStores(session.stores?.length ? session.stores : [session.store]);
+    saveCachedMerchantStores(storeOptions.value);
+    syncStore(session.store);
+    orders.value = [];
+    pendingSnapshotReady = false;
+    lastPendingOrderIds = new Set();
+    await loadMerchantHome();
+    uni.showToast({ title: `已切换到${session.store.name}`, icon: "none" });
+  } catch (error) {
+    uni.showToast({
+      title: error instanceof Error ? error.message : "门店切换失败",
+      icon: "none"
+    });
+  } finally {
+    switchingStoreCode.value = "";
   }
 }
 
@@ -469,18 +547,57 @@ onPullDownRefresh(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-top: -42px;
+  margin-top: 0;
 }
 
 .stat-card,
 .action-card,
 .audit-card,
+.store-switch-card,
 .delivery-status-card,
 .order-card {
   border: 1px solid rgba(17, 17, 17, 0.025);
   border-radius: 20px;
   background: #ffffff;
   box-shadow: 0 12px 30px rgba(17, 17, 17, 0.065);
+}
+
+.store-switch-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -42px;
+  padding: 14px;
+}
+
+.store-switch-label,
+.store-switch-name {
+  display: block;
+}
+
+.store-switch-label {
+  color: #999999;
+  font-size: 11px;
+}
+
+.store-switch-name {
+  margin-top: 4px;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.store-switch-action {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .audit-card {
