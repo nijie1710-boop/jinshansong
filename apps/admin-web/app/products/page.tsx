@@ -2,18 +2,29 @@ import { formatCurrency, PageShell, Panel, StatusPill } from "../admin-ui";
 import { getAdminProducts } from "../lib/api";
 import type { AdminProduct } from "../lib/api";
 import { approveProductAction, rejectProductAction } from "./actions";
+import Link from "next/link";
 import {
+  AlertTriangle,
   BadgeCheck,
   Boxes,
   CheckCircle2,
   Eye,
+  Filter,
   ImageIcon,
   PackageCheck,
+  Search,
   ShieldCheck,
   Store,
   XCircle
 } from "lucide-react";
 import type { ReactNode } from "react";
+
+type ProductView = "all" | "pending" | "visible" | "blocked" | "lowStock" | "attention";
+
+interface ProductPageSearchParams {
+  view?: string;
+  q?: string;
+}
 
 function reviewTone(status?: string) {
   if (status === "APPROVED") return "green";
@@ -21,7 +32,14 @@ function reviewTone(status?: string) {
   return "orange";
 }
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams
+}: {
+  searchParams?: Promise<ProductPageSearchParams>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const activeView = normalizeView(params.view);
+  const keyword = (params.q ?? "").trim();
   const products = await getAdminProducts();
   const pendingCount = products.filter((product) => product.reviewStatus === "PENDING").length;
   const rejectedCount = products.filter((product) => product.reviewStatus === "REJECTED").length;
@@ -33,11 +51,17 @@ export default async function ProductsPage() {
       product.reviewStatus === "APPROVED" && product.status === "ON_SALE" && product.stock > 0
   ).length;
   const missingImageCount = products.filter((product) => !product.coverUrl).length;
+  const blockedCount = products.filter((product) => !product.visibleToUser).length;
+  const lowStockCount = products.filter(isLowStockProduct).length;
+  const attentionCount = products.filter(productNeedsAttention).length;
   const pendingProducts = sortedByReview(products).filter(
     (product) => product.reviewStatus === "PENDING"
   );
   const sortedProducts = [...products].sort(
     (left, right) => reviewSort(left.reviewStatus) - reviewSort(right.reviewStatus)
+  );
+  const filteredProducts = sortedProducts.filter(
+    (product) => productMatchesView(product, activeView) && productMatchesKeyword(product, keyword)
   );
 
   return (
@@ -128,6 +152,79 @@ export default async function ProductsPage() {
         </div>
       </Panel>
 
+      <Panel title="运营筛选">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <ProductFilterLink
+              active={activeView === "all"}
+              count={products.length}
+              href={productFilterHref("all", keyword)}
+            >
+              全部
+            </ProductFilterLink>
+            <ProductFilterLink
+              active={activeView === "pending"}
+              count={pendingCount}
+              href={productFilterHref("pending", keyword)}
+              tone="orange"
+            >
+              待审核
+            </ProductFilterLink>
+            <ProductFilterLink
+              active={activeView === "visible"}
+              count={visibleCount}
+              href={productFilterHref("visible", keyword)}
+              tone="green"
+            >
+              用户可见
+            </ProductFilterLink>
+            <ProductFilterLink
+              active={activeView === "blocked"}
+              count={blockedCount}
+              href={productFilterHref("blocked", keyword)}
+            >
+              用户不可见
+            </ProductFilterLink>
+            <ProductFilterLink
+              active={activeView === "lowStock"}
+              count={lowStockCount}
+              href={productFilterHref("lowStock", keyword)}
+              tone="orange"
+            >
+              低库存
+            </ProductFilterLink>
+            <ProductFilterLink
+              active={activeView === "attention"}
+              count={attentionCount}
+              href={productFilterHref("attention", keyword)}
+              tone="red"
+            >
+              需处理
+            </ProductFilterLink>
+          </div>
+          <form className="flex min-w-0 gap-2" action="/products">
+            <input type="hidden" name="view" value={activeView} />
+            <div className="relative min-w-0 flex-1 xl:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#999999]" />
+              <input
+                className="h-10 w-full rounded-xl border border-black/10 bg-[#F7F8FA] pl-9 pr-3 text-sm outline-none focus:border-[#FF7A00]"
+                defaultValue={keyword}
+                name="q"
+                placeholder="搜索商品、SKU、门店、分类"
+              />
+            </div>
+            <button className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#FF7A00] px-4 text-sm font-semibold text-white">
+              <Filter className="size-4" />
+              筛选
+            </button>
+          </form>
+        </div>
+        <div className="mt-3 rounded-2xl bg-[#F7F8FA] px-4 py-3 text-sm text-[#666666]">
+          当前显示 {filteredProducts.length} / {products.length} 个 SKU
+          {keyword ? `，关键词：${keyword}` : ""}。筛选只影响后台视图，不会改变用户端或商家端数据。
+        </div>
+      </Panel>
+
       {products.length === 0 ? (
         <Panel>
           <div className="text-sm text-[#666666]">
@@ -159,7 +256,7 @@ export default async function ProductsPage() {
               <div>
                 <div className="font-semibold">真实接口商品列表</div>
                 <div className="mt-1 text-sm text-[#666666]">
-                  审核、上下架、库存、图片和用户端可见状态集中核对。
+                  审核、上下架、库存、图片和用户端可见状态集中核对。当前显示 {filteredProducts.length} 条。
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -172,8 +269,13 @@ export default async function ProductsPage() {
                 </StatusPill>
               </div>
             </div>
-            <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-black/5">
-              <table className="w-full min-w-[980px] text-left text-sm">
+            {filteredProducts.length === 0 ? (
+              <div className="rounded-2xl bg-[#F7F8FA] p-6 text-center text-sm text-[#666666]">
+                没有符合当前筛选的商品。
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-black/5">
+              <table className="w-full min-w-[1080px] text-left text-sm">
                 <thead className="bg-[#F7F8FA] text-[#666666]">
                   <tr>
                     <th className="px-4 py-3 font-medium">商品</th>
@@ -182,11 +284,11 @@ export default async function ProductsPage() {
                     <th className="px-4 py-3 text-right font-medium">库存</th>
                     <th className="px-4 py-3 font-medium">审核状态</th>
                     <th className="px-4 py-3 font-medium">用户端</th>
-                    <th className="px-4 py-3 font-medium">素材</th>
+                    <th className="px-4 py-3 font-medium">运营问题</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
-                  {sortedProducts.map((product) => (
+                  {filteredProducts.map((product) => (
                     <tr
                       className={`transition hover:bg-[#FFF7ED] ${
                         product.reviewStatus === "PENDING" ? "bg-orange-50/40" : ""
@@ -235,27 +337,53 @@ export default async function ProductsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          <StatusPill tone={product.coverUrl ? "green" : "orange"}>
-                            <ImageIcon className="size-3.5" />
-                            {product.coverUrl ? "主图" : "缺主图"}
-                          </StatusPill>
-                          <StatusPill
-                            tone={(product.detailImageUrls?.length ?? 0) > 0 ? "green" : "gray"}
-                          >
-                            详情 {product.detailImageUrls?.length ?? 0}
-                          </StatusPill>
-                        </div>
+                        <ProductIssuePills product={product} />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            )}
           </Panel>
         </div>
       )}
     </PageShell>
+  );
+}
+
+function ProductFilterLink({
+  active,
+  count,
+  href,
+  children,
+  tone = "default"
+}: {
+  active: boolean;
+  count: number;
+  href: string;
+  children: ReactNode;
+  tone?: "default" | "orange" | "green" | "red";
+}) {
+  const activeClass =
+    tone === "red"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : tone === "green"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : tone === "orange"
+          ? "border-[#FFB020]/50 bg-[#FFF7ED] text-[#FF7A00]"
+          : "border-black/10 bg-white text-[#111111]";
+
+  return (
+    <Link
+      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${
+        active ? activeClass : "border-black/5 bg-[#F7F8FA] text-[#666666]"
+      }`}
+      href={href}
+    >
+      {children}
+      <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs">{count}</span>
+    </Link>
   );
 }
 
@@ -341,6 +469,30 @@ function PendingProductCard({ product }: { product: AdminProduct }) {
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function ProductIssuePills({ product }: { product: AdminProduct }) {
+  const issues = productIssues(product);
+
+  if (issues.length === 0) {
+    return (
+      <StatusPill tone="green">
+        <CheckCircle2 className="size-3.5" />
+        正常
+      </StatusPill>
+    );
+  }
+
+  return (
+    <div className="flex max-w-[230px] flex-wrap gap-1.5">
+      {issues.map((issue) => (
+        <StatusPill key={issue} tone={issue.includes("负") || issue.includes("售罄") ? "red" : "orange"}>
+          <AlertTriangle className="size-3.5" />
+          {issue}
+        </StatusPill>
+      ))}
     </div>
   );
 }
@@ -490,6 +642,75 @@ function reviewSort(status?: string) {
   if (status === "PENDING") return 0;
   if (status === "REJECTED") return 2;
   return 1;
+}
+
+function normalizeView(value?: string): ProductView {
+  if (
+    value === "pending" ||
+    value === "visible" ||
+    value === "blocked" ||
+    value === "lowStock" ||
+    value === "attention"
+  ) {
+    return value;
+  }
+  return "all";
+}
+
+function productFilterHref(view: ProductView, keyword: string) {
+  const params = new URLSearchParams();
+  if (view !== "all") {
+    params.set("view", view);
+  }
+  if (keyword) {
+    params.set("q", keyword);
+  }
+  const query = params.toString();
+  return query ? `/products?${query}` : "/products";
+}
+
+function isLowStockProduct(product: AdminProduct) {
+  return product.stock > 0 && product.stock <= 5;
+}
+
+function productIssues(product: AdminProduct) {
+  return [
+    !product.coverUrl ? "缺主图" : "",
+    (product.detailImageUrls?.length ?? 0) === 0 ? "无详情图" : "",
+    product.stock <= 0 ? "售罄" : "",
+    isLowStockProduct(product) ? "低库存" : "",
+    product.reviewStatus === "REJECTED" ? "已驳回" : "",
+    !product.visibleToUser ? "用户不可见" : "",
+    typeof product.grossMargin === "number" && product.grossMargin < 0 ? "负毛利" : ""
+  ].filter(Boolean);
+}
+
+function productNeedsAttention(product: AdminProduct) {
+  return productIssues(product).length > 0 || product.reviewStatus === "PENDING";
+}
+
+function productMatchesView(product: AdminProduct, view: ProductView) {
+  if (view === "pending") return product.reviewStatus === "PENDING";
+  if (view === "visible") return Boolean(product.visibleToUser);
+  if (view === "blocked") return !product.visibleToUser;
+  if (view === "lowStock") return isLowStockProduct(product);
+  if (view === "attention") return productNeedsAttention(product);
+  return true;
+}
+
+function productMatchesKeyword(product: AdminProduct, keyword: string) {
+  if (!keyword) return true;
+  const haystack = [
+    product.name,
+    product.categoryName,
+    product.specs.join(" "),
+    product.storeNames?.join(" ")
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(keyword.toLowerCase());
 }
 
 function sortedByReview(products: AdminProduct[]) {

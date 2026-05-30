@@ -42,6 +42,14 @@
         <text class="stat-value">{{ availableCount }}</text>
         <text class="muted">可售商品</text>
       </view>
+      <view
+        class="stat-card"
+        :class="{ active: productFilter === 'lowStock' }"
+        @tap="focusProductList('lowStock')"
+      >
+        <text class="stat-value">{{ lowStockCount }}</text>
+        <text class="muted">低库存</text>
+      </view>
     </view>
 
     <view v-if="hasMerchantAccess" class="current-store-card">
@@ -376,6 +384,40 @@
       <text class="muted">{{ filteredProducts.length }} / {{ products.length }} 件</text>
     </view>
 
+    <view v-if="hasMerchantAccess && products.length > 0" class="batch-card">
+      <view class="batch-head">
+        <view>
+          <text class="section-title">批量管理</text>
+          <text class="muted">已选 {{ selectedProducts.length }} 件，可批量补货或上下架。</text>
+        </view>
+        <text class="batch-link" @tap="toggleSelectAllFiltered">
+          {{ allFilteredSelected ? "取消全选" : "全选当前" }}
+        </text>
+      </view>
+      <view class="batch-actions">
+        <button class="ghost-button" :disabled="batchBusy || selectedProducts.length === 0" @tap="batchRestock">
+          补货 +10
+        </button>
+        <button
+          class="outline-button"
+          :disabled="batchBusy || selectedProducts.length === 0"
+          @tap="batchToggleSaleStatus('OFF_SALE')"
+        >
+          批量下架
+        </button>
+        <button
+          class="primary-button"
+          :disabled="batchBusy || selectedProducts.length === 0"
+          @tap="batchToggleSaleStatus('ON_SALE')"
+        >
+          批量上架
+        </button>
+      </view>
+      <text v-if="selectedProducts.length > 0" class="batch-clear" @tap="clearSelection">
+        清空选择
+      </text>
+    </view>
+
     <view v-if="hasMerchantAccess && filteredProducts.length === 0" class="empty-card">
       <text class="section-title">暂无商品</text>
       <text class="muted">{{ productListEmptyText }}</text>
@@ -385,8 +427,16 @@
       v-for="product in hasMerchantAccess ? filteredProducts : []"
       :key="product.storeSkuId"
       class="product-card"
+      :class="{ selected: isProductSelected(product.storeSkuId) }"
     >
       <view class="product-row">
+        <view
+          class="product-check"
+          :class="{ active: isProductSelected(product.storeSkuId) }"
+          @tap.stop="toggleProductSelection(product.storeSkuId)"
+        >
+          ✓
+        </view>
         <view
           class="product-image"
           :style="{ background: displayImageUrl(product.coverUrl) ? '#f7f8fa' : product.imageTone }"
@@ -616,7 +666,7 @@ type Draft = {
   settlePrice: string;
 };
 
-type ProductFilter = "all" | "stock" | "available";
+type ProductFilter = "all" | "stock" | "available" | "lowStock";
 type SkuFormRow = {
   id: string;
   skuName: string;
@@ -635,9 +685,11 @@ const selectedCategoryIndex = ref(0);
 const submitting = ref(false);
 const uploading = ref(false);
 const switchingStoreCode = ref("");
+const batchBusy = ref(false);
 const drafts = ref<Record<string, Draft>>({});
 const editingStoreSkuId = ref("");
 const productFilter = ref<ProductFilter>("all");
+const selectedStoreSkuIds = ref<string[]>([]);
 const skuRows = ref<SkuFormRow[]>([]);
 
 const form = reactive({
@@ -676,6 +728,9 @@ const selectedStoreIndex = computed(() =>
 );
 const totalStock = computed(() => products.value.reduce((sum, product) => sum + product.stock, 0));
 const availableCount = computed(() => products.value.filter((product) => product.available).length);
+const lowStockCount = computed(
+  () => products.value.filter((product) => product.stock > 0 && product.stock <= 5).length
+);
 const filteredProducts = computed(() => {
   if (productFilter.value === "stock") {
     return products.value.filter((product) => product.stock > 0);
@@ -683,19 +738,34 @@ const filteredProducts = computed(() => {
   if (productFilter.value === "available") {
     return products.value.filter((product) => product.available);
   }
+  if (productFilter.value === "lowStock") {
+    return products.value.filter((product) => product.stock > 0 && product.stock <= 5);
+  }
   return products.value;
 });
 const productListTitle = computed(() => {
   if (productFilter.value === "stock") return "有库存商品";
   if (productFilter.value === "available") return "可售商品";
+  if (productFilter.value === "lowStock") return "低库存商品";
   return "门店商品";
 });
 const productListEmptyText = computed(() => {
   if (productFilter.value === "stock") return "当前没有现货库存商品，可补货后再查看。";
   if (productFilter.value === "available")
     return "当前没有用户端可售商品，请确认库存、上下架和审核状态。";
+  if (productFilter.value === "lowStock") return "当前没有低库存商品。";
   return "新增后会写入同一套后端数据库，并同步到用户端商品列表。";
 });
+const selectedProducts = computed(() =>
+  products.value.filter((product) => selectedStoreSkuIds.value.includes(product.storeSkuId))
+);
+const allFilteredSelected = computed(
+  () =>
+    filteredProducts.value.length > 0 &&
+    filteredProducts.value.every((product) =>
+      selectedStoreSkuIds.value.includes(product.storeSkuId)
+    )
+);
 const pendingCount = computed(
   () => products.value.filter((product) => product.reviewStatus === "PENDING").length
 );
@@ -774,6 +844,36 @@ function resetDrafts(items: MerchantProduct[]) {
     };
     return result;
   }, {});
+}
+
+function syncSelectedProducts() {
+  const existingIds = new Set(products.value.map((product) => product.storeSkuId));
+  selectedStoreSkuIds.value = selectedStoreSkuIds.value.filter((id) => existingIds.has(id));
+}
+
+function isProductSelected(storeSkuId: string) {
+  return selectedStoreSkuIds.value.includes(storeSkuId);
+}
+
+function toggleProductSelection(storeSkuId: string) {
+  selectedStoreSkuIds.value = isProductSelected(storeSkuId)
+    ? selectedStoreSkuIds.value.filter((id) => id !== storeSkuId)
+    : [...selectedStoreSkuIds.value, storeSkuId];
+}
+
+function toggleSelectAllFiltered() {
+  const ids = filteredProducts.value.map((product) => product.storeSkuId);
+  if (ids.length === 0) return;
+  if (allFilteredSelected.value) {
+    const filteredIdSet = new Set(ids);
+    selectedStoreSkuIds.value = selectedStoreSkuIds.value.filter((id) => !filteredIdSet.has(id));
+    return;
+  }
+  selectedStoreSkuIds.value = Array.from(new Set([...selectedStoreSkuIds.value, ...ids]));
+}
+
+function clearSelection() {
+  selectedStoreSkuIds.value = [];
 }
 
 function handleCategoryChange(event: { detail?: { value?: number | string } }) {
@@ -1269,6 +1369,7 @@ async function loadProducts() {
     ]);
     saveCachedMerchantStores(storeOptions.value);
     resetDrafts(productData);
+    syncSelectedProducts();
   } catch (error) {
     handleApiError(error, "门店商品读取失败");
   }
@@ -1298,6 +1399,7 @@ async function handleStorePickerChange(event: { detail?: { value?: number | stri
     saveCachedMerchantStores(storeOptions.value);
     editingStoreSkuId.value = "";
     productFilter.value = "all";
+    selectedStoreSkuIds.value = [];
     products.value = [];
     resetDrafts([]);
     await loadProducts();
@@ -1429,6 +1531,57 @@ async function toggleSaleStatus(product: MerchantProduct, status: "ON_SALE" | "O
   }
 }
 
+function replaceUpdatedProducts(updatedProducts: MerchantProduct[]) {
+  const updates = new Map(updatedProducts.map((product) => [product.storeSkuId, product]));
+  products.value = products.value.map((product) => updates.get(product.storeSkuId) ?? product);
+  resetDrafts(products.value);
+  syncSelectedProducts();
+}
+
+async function batchRestock() {
+  if (batchBusy.value || selectedProducts.value.length === 0) return;
+  batchBusy.value = true;
+  try {
+    const updatedProducts = await Promise.all(
+      selectedProducts.value.map((product) =>
+        api.updateProduct(product.storeSkuId, {
+          stock: product.stock + 10,
+          salePrice: product.salePrice,
+          settlePrice: product.settlePrice,
+          description: product.description,
+          coverUrl: product.coverUrl,
+          detailImageUrls: product.detailImageUrls
+        })
+      )
+    );
+    replaceUpdatedProducts(updatedProducts);
+    uni.showToast({ title: `已补货 ${updatedProducts.length} 件`, icon: "success" });
+  } catch (error) {
+    handleApiError(error, "批量补货失败");
+  } finally {
+    batchBusy.value = false;
+  }
+}
+
+async function batchToggleSaleStatus(status: "ON_SALE" | "OFF_SALE") {
+  if (batchBusy.value || selectedProducts.value.length === 0) return;
+  batchBusy.value = true;
+  try {
+    const updatedProducts = await Promise.all(
+      selectedProducts.value.map((product) => api.updateProduct(product.storeSkuId, { status }))
+    );
+    replaceUpdatedProducts(updatedProducts);
+    uni.showToast({
+      title: status === "ON_SALE" ? `已上架 ${updatedProducts.length} 件` : `已下架 ${updatedProducts.length} 件`,
+      icon: "success"
+    });
+  } catch (error) {
+    handleApiError(error, status === "ON_SALE" ? "批量上架失败" : "批量下架失败");
+  } finally {
+    batchBusy.value = false;
+  }
+}
+
 async function saveProductMeta(product: MerchantProduct) {
   try {
     const draft = drafts.value[product.storeSkuId];
@@ -1554,7 +1707,7 @@ onPullDownRefresh(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   position: relative;
   z-index: 2;
@@ -1563,6 +1716,7 @@ onPullDownRefresh(() => {
 
 .stat-card,
 .empty-card,
+.batch-card,
 .product-card {
   border: 1px solid rgba(17, 17, 17, 0.025);
   border-radius: 20px;
@@ -1590,7 +1744,7 @@ onPullDownRefresh(() => {
 .stat-value {
   display: block;
   margin-bottom: 4px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
 }
 
@@ -2218,6 +2372,47 @@ onPullDownRefresh(() => {
   padding: 18px;
 }
 
+.batch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.batch-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.batch-link,
+.batch-clear {
+  color: #ff7a00;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.batch-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.batch-actions button {
+  min-width: 0;
+  padding: 0 6px;
+}
+
+.batch-actions button[disabled] {
+  opacity: 0.45;
+}
+
+.batch-clear {
+  display: block;
+  text-align: center;
+}
+
 .product-card {
   display: flex;
   flex-direction: column;
@@ -2225,8 +2420,34 @@ onPullDownRefresh(() => {
   padding: 14px;
 }
 
+.product-card.selected {
+  border-color: rgba(255, 122, 0, 0.34);
+  background: linear-gradient(180deg, #fffaf4 0%, #ffffff 100%);
+}
+
 .product-row {
   gap: 10px;
+}
+
+.product-check {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  border: 1px solid #e8e8e8;
+  border-radius: 50%;
+  background: #ffffff;
+  color: transparent;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.product-check.active {
+  border-color: #ff7a00;
+  background: #ff7a00;
+  color: #ffffff;
 }
 
 .product-image {
