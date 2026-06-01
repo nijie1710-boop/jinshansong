@@ -35,7 +35,7 @@
         <view v-if="filteredProducts.length === 0" class="empty-card">
           <text class="section-title">{{ keyword ? "没有找到相关商品" : "暂无可售商品" }}</text>
           <text class="muted">
-            {{ keyword ? "换个关键词试试" : "等待商家提交商品并通过后台审核" }}
+            {{ keyword ? "换个关键词试试" : "附近暂未找到可售商品，请稍后再试" }}
           </text>
         </view>
 
@@ -43,6 +43,7 @@
           v-for="product in filteredProducts"
           :key="product.id"
           class="product-card"
+          :class="{ 'sold-out': product.stock <= 0 }"
           @tap="openProduct(product.id)"
         >
           <view
@@ -58,23 +59,27 @@
               mode="aspectFill"
             />
             <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text">
-              HTTPS
+              商品图片
             </text>
             <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
           </view>
           <view class="product-info">
             <text class="product-name">{{ product.name }}</text>
             <text class="store-line">{{ productStoreLine(product) }}</text>
-            <text class="muted"
-              >库存 {{ product.stock }} · {{ product.deliveryEtaMinutes || 45 }}分钟达</text
-            >
+            <text class="muted">{{ productEtaLine(product) }}</text>
             <view class="tag-row">
               <text class="tag">30-60分钟</text>
               <text class="tag">门店现货</text>
             </view>
             <view class="bottom">
               <text class="price">¥{{ product.price }}</text>
-              <button class="add-button" @tap.stop="addProductToCart(product)">+</button>
+              <button
+                class="add-button"
+                :disabled="product.stock <= 0"
+                @tap.stop="addProductToCart(product)"
+              >
+                {{ product.stock > 0 ? "+" : "缺" }}
+              </button>
             </view>
           </view>
         </view>
@@ -149,6 +154,13 @@ function productStoreLine(product: ApiProduct) {
   return product.nearestStoreDistanceKm === null || product.nearestStoreDistanceKm === undefined
     ? storeName
     : `${storeName} · ${product.nearestStoreDistanceKm}km`;
+}
+
+function productEtaLine(product: ApiProduct) {
+  if (product.stock <= 0) {
+    return "附近门店暂售罄";
+  }
+  return `库存 ${product.stock} · ${product.deliveryEtaMinutes || 45}分钟达`;
 }
 
 function setKeyword(event: Event) {
@@ -347,6 +359,10 @@ onPullDownRefresh(() => {
   padding: 10px;
 }
 
+.product-card.sold-out {
+  opacity: 0.72;
+}
+
 .product-image {
   position: relative;
   display: flex;
@@ -425,5 +441,10 @@ onPullDownRefresh(() => {
   background: #ff7a00;
   color: #ffffff;
   font-size: 18px;
+}
+
+.add-button[disabled] {
+  background: #e5e7eb;
+  color: #999999;
 }
 </style>

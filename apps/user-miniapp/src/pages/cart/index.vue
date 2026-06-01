@@ -45,7 +45,7 @@
             :src="displayImageUrl(item.imageUrl)"
             mode="aspectFill"
           />
-          <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">HTTPS</text>
+          <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">商品图片</text>
           <text v-else-if="!displayImageUrl(item.imageUrl)">金闪送</text>
         </view>
         <view class="item-main">

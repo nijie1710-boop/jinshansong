@@ -37,7 +37,7 @@
             mode="aspectFill"
           />
           <view class="mini-device"></view>
-          <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">HTTPS</text>
+          <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">商品图片</text>
           <text v-else-if="!displayImageUrl(item.imageUrl)">金闪送</text>
         </view>
         <view class="product-info">
@@ -155,7 +155,7 @@
         <text class="payable">¥{{ quote.payableAmount }}</text>
       </view>
       <button class="primary-button" :disabled="submitting || quoting" @tap="submitOrder">
-        {{ submitting ? "支付中..." : quoting ? "报价中..." : "提交订单" }}
+        {{ submitting ? "提交中..." : quoting ? "报价中..." : "提交订单" }}
       </button>
     </view>
   </view>
@@ -420,7 +420,7 @@ async function submitOrder() {
       removeCartItems(confirmItems.value.map((item) => item.skuId));
       clearCheckoutCartItems();
     }
-    uni.showToast({ title: "支付成功", icon: "success" });
+    uni.showToast({ title: "订单已提交", icon: "success" });
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/order/detail?id=${paid.id}` });
     }, 500);

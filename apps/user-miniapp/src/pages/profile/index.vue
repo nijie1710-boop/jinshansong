@@ -19,7 +19,10 @@
 
     <view class="menu">
       <view v-for="item in menus" :key="item.title" class="menu-row" @tap="handleMenu(item)">
-        <text>{{ item.title }}</text>
+        <view class="menu-main">
+          <text class="menu-icon">{{ item.icon }}</text>
+          <text class="menu-title">{{ item.title }}</text>
+        </view>
         <text class="muted">›</text>
       </view>
     </view>
@@ -43,13 +46,16 @@ import {
   type UserProfile
 } from "../../services/api";
 
-type MenuItem = { title: string; url?: string };
+type MenuItem = { title: string; url?: string; icon: string };
 
 const menus: MenuItem[] = [
-  { title: "地址管理", url: "/pages/address/list" },
-  { title: "优惠券", url: "/pages/coupon/index" },
-  { title: "分享有礼", url: "/pages/share/index" },
-  { title: "客服与售后", url: "/pages/support/index" }
+  { title: "地址管理", url: "/pages/address/list", icon: "址" },
+  { title: "优惠券", url: "/pages/coupon/index", icon: "券" },
+  { title: "分享有礼", url: "/pages/share/index", icon: "礼" },
+  { title: "关于我们", url: "/pages/about/index", icon: "关" },
+  { title: "联系客服", url: "/pages/support/index", icon: "客" },
+  { title: "隐私协议", url: "/pages/legal/index?type=privacy", icon: "隐" },
+  { title: "用户协议", url: "/pages/legal/index?type=terms", icon: "协" }
 ];
 const profile = ref<UserProfile | null>(getCachedUserProfile());
 const profileStats = ref({
@@ -60,7 +66,10 @@ const profileStats = ref({
 
 const profileName = computed(() => profile.value?.nickname || "金闪送用户");
 const profilePhone = computed(() => {
-  const phone = profile.value?.phone || "13800000000";
+  const phone = profile.value?.phone || "";
+  if (!phone) {
+    return "未绑定手机号";
+  }
   return phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
 });
 const stats = computed(() => [
@@ -205,12 +214,40 @@ onPullDownRefresh(() => {
 .menu-row {
   width: 100%;
   justify-content: space-between;
+  gap: 12px;
   border-bottom: 1px solid #f1f1f1;
-  padding: 15px 0;
+  padding: 13px 0;
 }
 
 .menu-row:last-child {
   border-bottom: 0;
+}
+
+.menu-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border-radius: 12px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.menu-title {
+  color: #111111;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .account-actions {

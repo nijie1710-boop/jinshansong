@@ -12,7 +12,7 @@
       />
       <view v-if="!displayImageUrl(activeCoverUrl)" class="visual-device"></view>
       <text v-if="isHttpImageBlocked(activeCoverUrl)" class="visual-brand visual-warning">
-        HTTPS 后显示
+        商品图片
       </text>
       <text v-else-if="!displayImageUrl(activeCoverUrl)" class="visual-brand">金闪送</text>
       <text class="visual-hint">门店现货 · 同城即达</text>
@@ -57,7 +57,7 @@
     <view class="card section">
       <view class="section-head">
         <text class="section-title">规格选择</text>
-        <text class="section-subtitle">SKU 图片跟随规格切换</text>
+        <text class="section-subtitle">图片跟随规格切换</text>
       </view>
       <view class="sku-grid">
         <view
@@ -74,7 +74,7 @@
               :src="displayImageUrl(sku.imageUrl)"
               mode="aspectFill"
             />
-            <text v-else>{{ isHttpImageBlocked(sku.imageUrl) ? "HTTPS" : "SKU" }}</text>
+            <text v-else>图片</text>
           </view>
           <view class="sku-copy">
             <text class="sku-name">{{ sku.name }}</text>
@@ -102,7 +102,7 @@
           :src="displayImageUrl(url)"
           mode="widthFix"
         />
-        <view v-else class="blocked-detail-image">HTTPS 图片接入后展示</view>
+        <view v-else class="blocked-detail-image">商品详情图片待更新</view>
       </view>
     </view>
 
@@ -118,8 +118,10 @@
 
     <view class="mobile-fixed-bottom bottom-bar">
       <button class="cart-shortcut" @tap="openCart">购物车</button>
-      <button class="ghost-button" @tap="addToCart">加入购物车</button>
-      <button class="primary-button" :disabled="currentStock <= 0" @tap="buyNow">立即购买</button>
+      <button class="ghost-button" :disabled="currentStock <= 0" @tap="addToCart">加入购物车</button>
+      <button class="primary-button" :disabled="currentStock <= 0" @tap="buyNow">
+        {{ currentStock > 0 ? "立即购买" : "暂售罄" }}
+      </button>
     </view>
   </view>
 </template>
@@ -164,7 +166,7 @@ const canBuy = createTapGuard(520);
 const services = ["门店现货", "极速配送", "正品保障", "售后无忧"];
 const storeNamesText = computed(() => {
   const names = product.value.storeNames ?? [];
-  return names.length > 0 ? names.join("、") : "福州附近审核门店";
+  return names.length > 0 ? names.join("、") : "附近门店";
 });
 const productStoreLine = computed(() => {
   const storeName = product.value.nearestStoreName || "附近门店";
@@ -215,7 +217,7 @@ function isHttpImageBlocked(url?: string) {
 function buyNow() {
   if (!canBuy()) return;
   const skuId = selectedSku.value?.id || product.value.skuId || product.value.skus?.[0]?.id;
-  if (!skuId) {
+  if (!skuId || currentStock.value <= 0) {
     shortToast("商品暂无库存");
     return;
   }

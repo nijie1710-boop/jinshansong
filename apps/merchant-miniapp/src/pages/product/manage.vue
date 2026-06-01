@@ -111,8 +111,7 @@
       <view class="upload-readiness-card">
         <text class="upload-readiness-title">图片上传提示</text>
         <text
-          >当前验收环境会把图片保存到本地后端并直接预览；正式版需切换 HTTPS
-          图片域名后再提交审核。</text
+          >当前图片会保存到平台服务并用于后台审核；正式提交前请确认图片清晰、真实、与商品一致。</text
         >
       </view>
 
@@ -154,7 +153,7 @@
           />
           <view v-else-if="isHttpImageBlocked(form.coverUrl)" class="blocked-image-note">
             <text>HTTPS 后显示</text>
-            <text>本地 HTTP 图片已保存</text>
+            <text>图片已保存</text>
           </view>
           <view v-else class="upload-inner">
             <text class="upload-plus">+</text>
@@ -395,7 +394,11 @@
         </text>
       </view>
       <view class="batch-actions">
-        <button class="ghost-button" :disabled="batchBusy || selectedProducts.length === 0" @tap="batchRestock">
+        <button
+          class="ghost-button"
+          :disabled="batchBusy || selectedProducts.length === 0"
+          @tap="batchRestock"
+        >
           补货 +10
         </button>
         <button
@@ -484,7 +487,9 @@
           <view class="image-editor-head">
             <view>
               <text class="field-label">图片与展示</text>
-              <text class="image-editor-sub">主图影响列表展示，SKU 图影响用户选择规格后的展示。</text>
+              <text class="image-editor-sub"
+                >主图影响列表展示，SKU 图影响用户选择规格后的展示。</text
+              >
             </view>
             <text class="review-chip">需重审</text>
           </view>
@@ -499,7 +504,7 @@
               />
               <view v-else-if="isHttpImageBlocked(editForm.coverUrl)" class="blocked-image-note">
                 <text>HTTPS 后显示</text>
-                <text>本地 HTTP 图片已保存</text>
+                <text>图片已保存</text>
               </view>
               <view v-else class="upload-inner">
                 <text class="upload-plus">+</text>
@@ -1572,7 +1577,10 @@ async function batchToggleSaleStatus(status: "ON_SALE" | "OFF_SALE") {
     );
     replaceUpdatedProducts(updatedProducts);
     uni.showToast({
-      title: status === "ON_SALE" ? `已上架 ${updatedProducts.length} 件` : `已下架 ${updatedProducts.length} 件`,
+      title:
+        status === "ON_SALE"
+          ? `已上架 ${updatedProducts.length} 件`
+          : `已下架 ${updatedProducts.length} 件`,
       icon: "success"
     });
   } catch (error) {

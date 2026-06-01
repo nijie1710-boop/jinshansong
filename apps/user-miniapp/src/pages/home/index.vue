@@ -21,6 +21,24 @@
       </view>
     </view>
 
+    <view v-if="showDistrictPicker" class="district-panel card">
+      <view class="section-head">
+        <text class="section-title">选择服务区域</text>
+        <text class="muted">无法定位时可手动选择</text>
+      </view>
+      <view class="district-grid">
+        <button
+          v-for="district in fuzhouDistrictOptions"
+          :key="district.name"
+          class="district-chip"
+          :class="{ active: currentDistrict === district.name }"
+          @tap="selectServiceDistrict(district)"
+        >
+          {{ district.name }}
+        </button>
+      </view>
+    </view>
+
     <view class="search">
       <text class="search-icon">⌕</text>
       <input
@@ -97,7 +115,7 @@
           {{
             searchKeyword
               ? "换个关键词试试，例如充电线、充电头、手机壳"
-              : "商家提交商品并由后台审核通过后会展示在这里"
+              : "附近暂未找到可售商品，请稍后再试或切换区域"
           }}
         </text>
       </view>
@@ -105,6 +123,7 @@
         v-for="product in displayProducts"
         :key="product.id"
         class="product-card"
+        :class="{ 'sold-out': product.stock <= 0 }"
         @tap="openProduct(product.id)"
       >
         <view
@@ -119,7 +138,7 @@
           />
           <view v-if="!displayImageUrl(product.coverUrl)" class="device-shape"></view>
           <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text"
-            >HTTPS</text
+            >商品图片</text
           >
           <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
         </view>
@@ -136,7 +155,13 @@
               <text class="price">¥{{ product.price }}</text>
               <text class="origin">¥{{ product.originPrice }}</text>
             </view>
-            <button class="cart-button" @tap.stop="addProductToCart(product)">+</button>
+            <button
+              class="cart-button"
+              :disabled="product.stock <= 0"
+              @tap.stop="addProductToCart(product)"
+            >
+              {{ product.stock > 0 ? "+" : "缺" }}
+            </button>
           </view>
         </view>
       </view>
@@ -162,8 +187,18 @@ const searchKeyword = ref("");
 const currentCity = ref("福州市");
 const currentDistrict = ref("台江区");
 const currentLocationName = ref("本地数码闪购");
+const showDistrictPicker = ref(false);
 const canAddCart = createTapGuard(260);
 const canNavigate = createTapGuard(420);
+
+const fuzhouDistrictOptions = [
+  { name: "鼓楼区", latitude: 26.0823, longitude: 119.2993 },
+  { name: "台江区", latitude: 26.0526, longitude: 119.3149 },
+  { name: "仓山区", latitude: 26.0389, longitude: 119.2734 },
+  { name: "晋安区", latitude: 26.0818, longitude: 119.3286 },
+  { name: "马尾区", latitude: 25.9897, longitude: 119.4556 },
+  { name: "长乐区", latitude: 25.9606, longitude: 119.5234 }
+];
 
 const promises = [
   { icon: "盾", title: "正品保障" },
@@ -234,6 +269,9 @@ function productStoreLine(product: ApiProduct) {
 }
 
 function productEtaLine(product: ApiProduct) {
+  if (product.stock <= 0) {
+    return "附近门店暂售罄";
+  }
   return `现货 ${product.stock} 件 · ${product.deliveryEtaMinutes || 45}分钟达`;
 }
 
@@ -267,12 +305,13 @@ function parseFuzhouLocation(result: {
   latitude?: number;
   longitude?: number;
 }) {
-  const districts = ["鼓楼区", "台江区", "仓山区", "晋安区", "马尾区", "长乐区"];
+  const districts = fuzhouDistrictOptions.map((item) => item.name);
   const addressText = [result.address, result.name].filter(Boolean).join("");
   const district = districts.find((item) => addressText.includes(item)) || currentDistrict.value;
   const city = addressText.includes("福州") ? "福州市" : currentCity.value || "福州市";
   const name = result.name || result.address || "已定位当前位置";
 
+  showDistrictPicker.value = false;
   saveHomeLocation({
     city,
     district,
@@ -280,6 +319,19 @@ function parseFuzhouLocation(result: {
     latitude: result.latitude,
     longitude: result.longitude
   });
+}
+
+function selectServiceDistrict(district: (typeof fuzhouDistrictOptions)[number]) {
+  saveHomeLocation({
+    city: "福州市",
+    district: district.name,
+    name: `${district.name}服务区`,
+    latitude: district.latitude,
+    longitude: district.longitude
+  });
+  showDistrictPicker.value = false;
+  void loadHomeData(searchKeyword.value);
+  uni.showToast({ title: `已切换到${district.name}`, icon: "none" });
 }
 
 function chooseHomeLocation() {
@@ -298,7 +350,8 @@ function chooseHomeLocation() {
         uni.showToast({ title: "已记录当前位置", icon: "none" });
       },
       fail() {
-        uni.showToast({ title: "定位不可用，请手动选择区域", icon: "none" });
+        showDistrictPicker.value = true;
+        uni.showToast({ title: "定位不可用，可手动选择区域", icon: "none" });
       }
     });
   };
@@ -514,6 +567,39 @@ onPullDownRefresh(() => {
 }
 
 .locate-button::after {
+  border: 0;
+}
+
+.district-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.district-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.district-chip {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f7f8fa;
+  color: #666666;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.district-chip.active {
+  background: #fff2e8;
+  color: #ff7a00;
+}
+
+.district-chip::after {
   border: 0;
 }
 
@@ -796,6 +882,10 @@ onPullDownRefresh(() => {
   box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
 }
 
+.product-card.sold-out {
+  opacity: 0.72;
+}
+
 .product-image {
   position: relative;
   display: flex;
@@ -895,5 +985,11 @@ onPullDownRefresh(() => {
   font-weight: 700;
   line-height: 1;
   box-shadow: 0 8px 14px rgba(255, 122, 0, 0.22);
+}
+
+.cart-button[disabled] {
+  background: #e5e7eb;
+  color: #999999;
+  box-shadow: none;
 }
 </style>

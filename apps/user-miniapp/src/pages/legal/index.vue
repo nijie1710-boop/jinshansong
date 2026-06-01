@@ -7,14 +7,14 @@
     </view>
 
     <view class="card notice-card">
-      <text>
+      <view class="notice-text">
         运营主体：福州金泽涌跨境电子商务有限公司。服务域名：jssbuy.cn。平台将根据业务调整和法律法规要求更新本协议。
-      </text>
+      </view>
     </view>
 
     <view v-for="section in content.sections" :key="section.heading" class="card legal-card">
       <text class="section-title">{{ section.heading }}</text>
-      <text v-for="item in section.items" :key="item" class="paragraph">{{ item }}</text>
+      <view v-for="item in section.items" :key="item" class="paragraph">{{ item }}</view>
     </view>
   </view>
 </template>
@@ -189,6 +189,7 @@ onLoad((query) => {
   padding: 22px;
   background: linear-gradient(135deg, #ff7a00, #ffb020);
   color: #ffffff;
+  box-shadow: 0 14px 30px rgba(255, 122, 0, 0.16);
 }
 
 .eyebrow,
@@ -203,16 +204,39 @@ onLoad((query) => {
 }
 
 .notice-card {
+  min-width: 0;
+  overflow: hidden;
+  border-left: 4px solid #ff7a00;
   color: #8a4b13;
   background: #fff7ed;
   font-size: 12px;
   line-height: 1.55;
 }
 
+.notice-text,
+.paragraph {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: break-word;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .legal-card {
   display: flex;
+  min-width: 0;
+  overflow: hidden;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.05);
+}
+
+.legal-card .section-title {
+  color: #111111;
+  line-height: 1.35;
 }
 
 .paragraph {

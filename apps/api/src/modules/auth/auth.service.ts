@@ -151,6 +151,17 @@ export class AuthService {
         };
       }
 
+      if (wechat.mode === "mock") {
+        const result = await this.mockMerchantLoginWithoutPhone(wechat.openId);
+
+        return {
+          ...result,
+          loginMode: wechat.mode,
+          openId: wechat.openId,
+          message: result.canLogin ? "已进入本地测试门店" : result.message
+        };
+      }
+
       return {
         canLogin: false,
         loginMode: wechat.mode,
@@ -180,6 +191,17 @@ export class AuthService {
     return (await this.ownedMerchantStoresForAccount(account)).map((store) =>
       this.formatStore(store)
     );
+  }
+
+  async merchantApplications(merchantToken?: string) {
+    const { account } = await this.resolveMerchantAccountSession(merchantToken);
+    const applications = await this.prisma.storeApplication.findMany({
+      where: { applicantPhone: { in: this.phoneCandidates(account.phone) } },
+      include: { store: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return applications.map((application) => this.formatApplication(application));
   }
 
   async merchantSwitchStore(merchantToken: string | undefined, storeCode?: string) {
@@ -387,6 +409,31 @@ export class AuthService {
     };
   }
 
+  private async mockMerchantLoginWithoutPhone(openId: string) {
+    const recentMobileAccount = await this.prisma.merchantAccount.findFirst({
+      where: {
+        status: AccountStatus.ACTIVE,
+        phone: { startsWith: "1" },
+        store: { status: StoreStatus.OPEN }
+      },
+      include: { store: true },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    if (recentMobileAccount) {
+      return this.merchantLogin({
+        phone: recentMobileAccount.phone,
+        openId
+      });
+    }
+
+    const demoStore = await this.resolveStore(DEFAULT_STORE_CODE);
+    return this.merchantLogin({
+      phone: demoStore.phone ?? demoStore.code,
+      openId
+    });
+  }
+
   async adminLogin(dto: { account?: string; password?: string }) {
     await this.ensureDefaultAdmin();
 
@@ -417,6 +464,35 @@ export class AuthService {
       account: admin.account,
       role: admin.role,
       name: admin.name
+    };
+  }
+
+  async adminChangePassword(
+    adminToken: string | undefined,
+    dto: { currentPassword?: string; newPassword?: string }
+  ) {
+    const admin = await this.assertAdmin(adminToken);
+    const currentPassword = dto.currentPassword ?? "";
+    const newPassword = dto.newPassword ?? "";
+
+    if (!passwordMatches(currentPassword, admin.passwordSalt, admin.passwordHash)) {
+      throw new UnauthorizedException("当前密码不正确");
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException("新密码至少需要 8 位");
+    }
+    if (newPassword === currentPassword) {
+      throw new BadRequestException("新密码不能与当前密码相同");
+    }
+
+    await this.prisma.adminUser.update({
+      where: { id: admin.id },
+      data: createPasswordHash(newPassword)
+    });
+
+    return {
+      ok: true,
+      message: "管理员密码已更新"
     };
   }
 

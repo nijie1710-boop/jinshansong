@@ -29,16 +29,35 @@
         <text class="store-switch-label">当前经营门店</text>
         <text class="store-switch-name">{{ storeName }}</text>
       </view>
-      <picker
-        :range="storeOptionNames"
-        :value="selectedStoreIndex"
-        :disabled="storeOptions.length <= 1 || Boolean(switchingStoreCode)"
-        @change="handleStorePickerChange"
-      >
-        <view class="store-switch-action">
-          {{ storeOptions.length > 1 ? "切换门店" : "单门店" }}
+      <view class="store-switch-actions">
+        <picker
+          :range="storeOptionNames"
+          :value="selectedStoreIndex"
+          :disabled="storeOptions.length <= 1 || Boolean(switchingStoreCode)"
+          @change="handleStorePickerChange"
+        >
+          <view class="store-switch-action">
+            {{ storeOptions.length > 1 ? "切换门店" : "单门店" }}
+          </view>
+        </picker>
+        <text class="store-apply-action" @tap="goApplyStore">申请新门店</text>
+      </view>
+    </view>
+
+    <view v-if="hasMerchantAccess && applications.length" class="application-status-card">
+      <view class="section-head compact">
+        <text class="section-title">门店申请进度</text>
+        <text class="muted">{{ applications.length }} 条记录</text>
+      </view>
+      <view v-for="item in applications" :key="item.id" class="application-row">
+        <view>
+          <text class="application-name">{{ item.storeName }}</text>
+          <text class="muted">{{ item.district }} · {{ item.address }}</text>
         </view>
-      </picker>
+        <text class="application-status" :class="item.status.toLowerCase()">
+          {{ item.statusText }}
+        </text>
+      </view>
     </view>
 
     <view v-if="hasMerchantAccess" class="stats-grid">
@@ -147,12 +166,14 @@ import {
   saveCachedMerchantStores,
   saveCachedMerchantStore,
   saveMerchantSession,
+  type StoreApplication,
   type MerchantOrder,
   type MerchantStats,
   type MerchantStore
 } from "../../services/api";
 
 const orders = ref<MerchantOrder[]>([]);
+const applications = ref<StoreApplication[]>([]);
 const store = ref<MerchantStore | null>(getCachedMerchantStore());
 const storeOptions = ref<MerchantStore[]>(initialStoreOptions());
 const savingAcceptSwitch = ref(false);
@@ -242,6 +263,10 @@ function goLogin() {
   uni.navigateTo({ url: "/pages/login/index" });
 }
 
+function goApplyStore() {
+  uni.navigateTo({ url: "/pages/login/index?mode=apply&intent=add-store" });
+}
+
 function openOrderTab(tab: "all" | "pending" | "accepted") {
   uni.setStorageSync("jss_merchant_order_tab", tab);
   uni.switchTab({ url: "/pages/order/list" });
@@ -274,6 +299,7 @@ async function loadMerchantHome() {
   store.value = getCachedMerchantStore();
   if (!hasMerchantAccess.value) {
     orders.value = [];
+    applications.value = [];
     pendingSnapshotReady = false;
     lastPendingOrderIds = new Set();
     merchantStats.value = {
@@ -292,6 +318,7 @@ async function loadMerchantHome() {
       api.stats(),
       api.stores().catch(() => [] as MerchantStore[])
     ]);
+    applications.value = await api.applications().catch(() => [] as StoreApplication[]);
     notifyNewPendingOrders(pendingOrders, Boolean(storeData.voiceReminderSwitch));
     syncStore(storeData);
     storeOptions.value = dedupeStores([storeData, ...manageableStores]);
@@ -300,6 +327,7 @@ async function loadMerchantHome() {
     merchantStats.value = statsData;
   } catch {
     orders.value = [];
+    applications.value = [];
     uni.showToast({ title: "商家数据加载失败", icon: "none" });
   }
 }
@@ -598,6 +626,76 @@ onPullDownRefresh(() => {
   color: #ff7a00;
   font-size: 12px;
   font-weight: 900;
+}
+
+.store-switch-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.store-apply-action {
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.application-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid rgba(17, 17, 17, 0.025);
+  border-radius: 18px;
+  padding: 13px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(17, 17, 17, 0.055);
+}
+
+.section-head.compact {
+  align-items: center;
+}
+
+.application-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 10px;
+  background: #f7f8fa;
+}
+
+.application-name {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 900;
+}
+
+.application-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #eef2f7;
+  color: #666666;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.application-status.pending {
+  background: #fff3e3;
+  color: #ff7a00;
+}
+
+.application-status.approved {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.application-status.rejected {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .audit-card {

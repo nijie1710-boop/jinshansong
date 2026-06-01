@@ -1,7 +1,7 @@
 <template>
   <view class="page login-page">
     <view class="login-hero">
-      <view class="nav-hint">微信小程序登录预览</view>
+      <view class="nav-hint">微信安全登录</view>
       <view class="brand-lockup">
         <view class="brand-mark">
           <image class="brand-mark-image" src="/static/brand/logo-icon.png" mode="aspectFit" />
@@ -168,11 +168,22 @@ async function handleLogin(event?: PhoneNumberEvent) {
   margin: -12px -12px 0;
   padding: 28px 20px 36px;
   background:
-    radial-gradient(circle at 16% 22%, rgba(255, 255, 255, 0.25), transparent 28%),
-    radial-gradient(circle at 88% 10%, rgba(255, 255, 255, 0.3), transparent 27%),
-    linear-gradient(135deg, #ff7a00, #ffb020);
+    linear-gradient(145deg, rgba(17, 24, 39, 0.4) 0%, rgba(17, 24, 39, 0) 42%),
+    linear-gradient(135deg, #ff7a00 0%, #ff9f1a 56%, #ffbd45 100%);
   color: #ffffff;
   box-shadow: 0 14px 30px rgba(255, 122, 0, 0.18);
+}
+
+.login-hero::after {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 112px;
+  height: 64px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  content: "";
 }
 
 .nav-hint {
@@ -187,27 +198,27 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-lockup {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 12px;
   max-width: 100%;
-  border-radius: 22px;
   margin-top: 46px;
-  padding: 12px 16px 12px 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 16px 28px rgba(145, 64, 0, 0.16);
+  padding: 0;
 }
 
 .brand-mark {
   display: flex;
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   align-items: center;
   justify-content: center;
-  flex: 0 0 56px;
+  flex: 0 0 60px;
   overflow: hidden;
-  border-radius: 18px;
-  background: #fff7ef;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 14px 26px rgba(145, 64, 0, 0.18);
 }
 
 .brand-mark-image {
@@ -223,7 +234,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-title {
-  color: #111111;
+  color: #ffffff;
   font-size: 24px;
   font-weight: 900;
   letter-spacing: 0;
@@ -231,13 +242,15 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-desc {
-  color: #8a4b13;
+  color: rgba(255, 255, 255, 0.86);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.25;
 }
 
 .subtitle {
+  position: relative;
+  z-index: 1;
   margin-top: 14px;
   color: rgba(255, 255, 255, 0.86);
   font-size: 13px;
@@ -252,6 +265,8 @@ async function handleLogin(event?: PhoneNumberEvent) {
   margin-top: -24px;
   padding: 20px 18px 18px;
   border-radius: 22px;
+  border-color: rgba(255, 122, 0, 0.08);
+  box-shadow: 0 18px 36px rgba(17, 17, 17, 0.08);
 }
 
 .profile-preview {

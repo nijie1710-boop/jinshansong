@@ -71,8 +71,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
               </div>
               <div className="mt-3 rounded-2xl bg-[#FF7A00] px-3 py-2.5 shadow-lg shadow-orange-950/20">
-                <div className="text-sm font-semibold">本地真实接口联调</div>
-                <div className="mt-0.5 text-xs text-white/78">订单、商品、门店数据已互通</div>
+                <div className="text-sm font-semibold">运营数据联通</div>
+                <div className="mt-0.5 text-xs text-white/78">订单、商品、门店数据统一管理</div>
               </div>
             </div>
 
@@ -145,7 +145,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <header className="sticky top-0 z-20 border-b border-black/5 bg-white/[0.92] px-5 py-3 backdrop-blur-xl xl:px-8">
             <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xs font-medium text-[#FF7A00]">FUZHOU DIGITAL QUICK COMMERCE</div>
+                <div className="text-xs font-medium text-[#FF7A00]">
+                  FUZHOU DIGITAL QUICK COMMERCE
+                </div>
                 <div className="mt-0.5 text-lg font-semibold">运营管理台</div>
               </div>
               <div className="hidden min-w-[320px] max-w-[520px] flex-1 items-center gap-2 rounded-2xl bg-[#F5F6F8] px-3 py-2 text-sm text-[#999999] ring-1 ring-black/5 md:flex">

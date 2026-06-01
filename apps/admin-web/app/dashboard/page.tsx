@@ -20,7 +20,7 @@ export default async function DashboardPage() {
       actions={
         <div className="flex flex-wrap gap-2">
           <StatusPill tone="green">真实接口</StatusPill>
-          <StatusPill tone="orange">本地预部署</StatusPill>
+          <StatusPill tone="orange">预部署</StatusPill>
         </div>
       }
     >
@@ -213,7 +213,9 @@ function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-[#666666]">{label}</div>
-          <div className="mt-2 text-[30px] font-semibold leading-tight tracking-normal">{value}</div>
+          <div className="mt-2 text-[30px] font-semibold leading-tight tracking-normal">
+            {value}
+          </div>
         </div>
         <div className={`flex size-11 items-center justify-center rounded-2xl ${toneClass}`}>
           <Icon className="size-5" />

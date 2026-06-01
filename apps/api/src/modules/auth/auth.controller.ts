@@ -61,6 +61,11 @@ export class AuthController {
     return this.authService.merchantStores(merchantToken);
   }
 
+  @Get("auth/merchant/applications")
+  merchantApplications(@Headers("x-merchant-token") merchantToken?: string) {
+    return this.authService.merchantApplications(merchantToken);
+  }
+
   @Post("auth/merchant/switch-store")
   merchantSwitchStore(
     @Headers("x-merchant-token") merchantToken: string | undefined,
@@ -85,5 +90,13 @@ export class AuthController {
   @Post("admin/auth/login")
   adminLogin(@Body() body: { account?: string; password?: string }) {
     return this.authService.adminLogin(body);
+  }
+
+  @Post("admin/auth/change-password")
+  adminChangePassword(
+    @Headers("x-admin-token") adminToken: string | undefined,
+    @Body() body: { currentPassword?: string; newPassword?: string }
+  ) {
+    return this.authService.adminChangePassword(adminToken, body);
   }
 }

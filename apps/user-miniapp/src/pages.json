@@ -93,6 +93,12 @@
       }
     },
     {
+      "path": "pages/about/index",
+      "style": {
+        "navigationBarTitleText": "关于金闪送"
+      }
+    },
+    {
       "path": "pages/legal/index",
       "style": {
         "navigationBarTitleText": "协议与隐私"

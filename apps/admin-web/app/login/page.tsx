@@ -12,7 +12,7 @@ const API_BASE_URL = rawBaseUrl
 
 export default function LoginPage() {
   const router = useRouter();
-  const [account, setAccount] = useState("admin");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -79,13 +79,13 @@ export default function LoginPage() {
           <input
             className="w-full rounded-lg border border-black/10 px-4 py-3"
             onChange={(event) => setAccount(event.target.value)}
-            placeholder="admin"
+            placeholder="请输入管理员账号"
             value={account}
           />
           <input
             className="w-full rounded-lg border border-black/10 px-4 py-3"
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="admin123456"
+            placeholder="请输入管理员密码"
             type="password"
             value={password}
           />

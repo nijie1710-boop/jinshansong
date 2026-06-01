@@ -42,6 +42,24 @@
       <text class="store-switch-note">
         同一个商家手机号可管理多个已审核门店；切换后商品、订单、对账都会读取当前门店数据。
       </text>
+      <button class="ghost-button add-store-button" @tap="goApplyStore">申请新门店</button>
+    </view>
+
+    <view v-if="applications.length" class="card section application-section">
+      <view class="section-head">
+        <text class="section-title">门店申请进度</text>
+        <text class="tag">{{ applications.length }} 条记录</text>
+      </view>
+      <view v-for="item in applications" :key="item.id" class="application-row">
+        <view>
+          <text class="setting-title">{{ item.storeName }}</text>
+          <text class="muted">{{ item.city }}{{ item.district }} · {{ item.address }}</text>
+          <text v-if="item.reviewRemark" class="application-note">{{ item.reviewRemark }}</text>
+        </view>
+        <text class="status-chip" :class="item.status.toLowerCase()">
+          {{ item.statusText }}
+        </text>
+      </view>
     </view>
 
     <view v-for="item in switches" :key="item.key" class="setting-row">
@@ -69,7 +87,7 @@
         <view>
           <text class="setting-title">{{ provider.providerName }}</text>
           <text class="muted">
-            {{ provider.mode === "http" ? "正式平台" : "预览联调" }} ·
+            {{ provider.mode === "http" ? "正式平台" : "平台联调" }} ·
             {{ provider.providerShopId || "未绑定门店ID" }}
           </text>
           <text v-if="provider.missing.length" class="missing">
@@ -98,6 +116,40 @@
       </view>
     </view>
 
+    <view class="card section support-menu">
+      <text class="section-title">平台协议与支持</text>
+      <view class="support-row" @tap="openLegal('merchant')">
+        <view class="support-main">
+          <text class="support-icon">协</text>
+          <view>
+            <text class="setting-title">门店服务协议</text>
+            <text class="muted">商品、订单、履约和结算规则</text>
+          </view>
+        </view>
+        <text class="store-option-state">查看</text>
+      </view>
+      <view class="support-row" @tap="openLegal('privacy')">
+        <view class="support-main">
+          <text class="support-icon">隐</text>
+          <view>
+            <text class="setting-title">隐私协议</text>
+            <text class="muted">门店资料、账号和订单数据使用说明</text>
+          </view>
+        </view>
+        <text class="store-option-state">查看</text>
+      </view>
+      <button class="support-row support-button" open-type="contact">
+        <view class="support-main">
+          <text class="support-icon">客</text>
+          <view>
+            <text class="setting-title">联系平台</text>
+            <text class="muted">审核、商品、订单和结算问题可通过客服提交</text>
+          </view>
+        </view>
+        <text class="store-option-state">联系</text>
+      </button>
+    </view>
+
     <button class="primary-button" @tap="goProductManage">管理门店商品</button>
     <button class="ghost-button" @tap="goSupport">平台支持与规则</button>
     <button class="danger-button" @tap="switchAccount">退出登录 / 切换账号</button>
@@ -114,6 +166,7 @@ import {
   saveCachedMerchantStores,
   saveMerchantSession,
   saveCachedMerchantStore,
+  type StoreApplication,
   type MerchantStore
 } from "../../services/api";
 
@@ -137,6 +190,7 @@ const fallbackStore: MerchantStore = {
 };
 const store = ref<MerchantStore>(getCachedMerchantStore() ?? fallbackStore);
 const storeOptions = ref<MerchantStore[]>(initialStoreOptions());
+const applications = ref<StoreApplication[]>([]);
 const savingKey = ref<SwitchKey | "">("");
 const switchingStoreCode = ref("");
 
@@ -186,6 +240,14 @@ function goSupport() {
   uni.navigateTo({ url: "/pages/support/index" });
 }
 
+function goApplyStore() {
+  uni.navigateTo({ url: "/pages/login/index?mode=apply&intent=add-store" });
+}
+
+function openLegal(type: "merchant" | "privacy") {
+  uni.navigateTo({ url: `/pages/legal/index?type=${type}` });
+}
+
 function syncStore(storeData: MerchantStore) {
   store.value = storeData;
   saveCachedMerchantStore(storeData);
@@ -217,8 +279,13 @@ async function handleSwitchChange(key: SwitchKey, event: Event) {
 
 async function loadStoreOptions() {
   try {
-    const [storeData, stores] = await Promise.all([api.me(), api.stores()]);
+    const [storeData, stores, applicationData] = await Promise.all([
+      api.me(),
+      api.stores(),
+      api.applications().catch(() => [] as StoreApplication[])
+    ]);
     storeOptions.value = dedupeStores([storeData, ...stores]);
+    applications.value = applicationData;
     saveCachedMerchantStores(storeOptions.value);
     syncStore(storeData);
   } catch {
@@ -308,7 +375,8 @@ onMounted(() => {
 }
 
 .section-head,
-.delivery-row {
+.delivery-row,
+.application-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -321,13 +389,16 @@ onMounted(() => {
   gap: 12px;
 }
 
-.store-switch-section {
+.store-switch-section,
+.application-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.store-option {
+.store-option,
+.application-row,
+.support-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -336,6 +407,62 @@ onMounted(() => {
   border-radius: 16px;
   padding: 12px;
   background: #f7f8fa;
+}
+
+.application-row {
+  align-items: flex-start;
+}
+
+.application-row .muted,
+.application-note {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.application-note {
+  color: #a14a00;
+}
+
+.support-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.support-button {
+  width: 100%;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.support-button::after {
+  border: 0;
+}
+
+.support-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border-radius: 12px;
+  background: #fff2e8;
+  color: #ff7a00;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .store-option.active {
@@ -357,6 +484,11 @@ onMounted(() => {
   color: #999999;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.add-store-button {
+  width: 100%;
+  height: 40px;
 }
 
 .delivery-row {
@@ -405,6 +537,21 @@ onMounted(() => {
 }
 
 .status-chip.http_incomplete {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-chip.pending {
+  background: #fff3e3;
+  color: #ff7a00;
+}
+
+.status-chip.approved {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.status-chip.rejected {
   background: #fef2f2;
   color: #dc2626;
 }

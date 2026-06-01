@@ -1,6 +1,7 @@
 import { resolve4 } from "node:dns/promises";
 import { PageShell, Panel, StatusPill } from "../admin-ui";
 import { getApiHealth } from "../lib/api";
+import { ChangePasswordForm } from "./change-password-form";
 
 const previewIp = process.env.DEPLOYMENT_PREVIEW_IP || "122.51.248.210";
 const domainTargets = [
@@ -196,6 +197,14 @@ export default async function SettingsPage() {
             </div>
           </div>
         </div>
+      </Panel>
+
+      <Panel title="管理员密码">
+        <ChangePasswordForm />
+        <p className="mt-3 text-sm text-[#666666]">
+          密码只提交到 API
+          更新哈希，不会在后台页面保存明文。修改后当前会话仍可继续使用，下次登录需要输入新密码。
+        </p>
       </Panel>
     </PageShell>
   );

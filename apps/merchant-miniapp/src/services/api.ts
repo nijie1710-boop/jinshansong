@@ -411,6 +411,7 @@ export const api = {
   login: (phone: string) =>
     request<MerchantLoginResult>("/auth/merchant/login", { method: "POST", data: { phone } }),
   stores: () => request<MerchantStore[]>("/auth/merchant/stores"),
+  applications: () => request<StoreApplication[]>("/auth/merchant/applications"),
   switchStore: (storeCode: string) =>
     request<MerchantSession>("/auth/merchant/switch-store", {
       method: "POST",

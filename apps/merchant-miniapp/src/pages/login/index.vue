@@ -23,10 +23,14 @@
       >
     </view>
 
+    <view v-if="addStoreMode" class="notice-card">
+      <text>当前账号已登录，可继续提交另一家门店。审核通过后会出现在门店切换里。</text>
+    </view>
+
     <view v-if="mode === 'apply'" class="card form-card">
       <view class="section-head">
-        <text class="section-title">门店资料</text>
-        <text class="muted">平台审核流</text>
+        <text class="section-title">{{ addStoreMode ? "新增门店资料" : "门店资料" }}</text>
+        <text class="muted">{{ addStoreMode ? "新增门店审核" : "平台审核流" }}</text>
       </view>
 
       <view class="field-grid">
@@ -182,7 +186,7 @@
       </view>
 
       <button class="primary-button" :disabled="loading" @tap="submitApplication">
-        {{ loading ? "提交中..." : "提交入驻申请" }}
+        {{ loading ? "提交中..." : addStoreMode ? "提交新门店申请" : "提交入驻申请" }}
       </button>
       <view class="agreement apply-agreement">
         <text>提交即代表同意</text>
@@ -254,10 +258,13 @@
       <button class="ghost-button" :disabled="loading" @tap="checkStatus({ autoEnter: true })">
         查看审核状态
       </button>
+      <button v-if="loggedIn" class="ghost-button" :disabled="loading" @tap="goHome">
+        返回当前门店
+      </button>
       <view class="agreement">
         <text>登录即代表同意</text>
-        <text class="agreement-link" @tap="openLegal('merchant')">《商家服务协议》</text>
-        <text class="agreement-link" @tap="openLegal('privacy')">《隐私政策》</text>
+        <text class="agreement-link" @tap="openLegal('merchant')">《门店服务协议》</text>
+        <text class="agreement-link" @tap="openLegal('privacy')">《隐私协议》</text>
       </view>
     </view>
   </view>
@@ -270,15 +277,18 @@ import { goAfterMerchantLogin, hasMerchantLogin } from "../../services/auth-guar
 import {
   ApiRequestError,
   api,
+  getCachedMerchantStore,
   saveMerchantSession,
   type StoreApplication
 } from "../../services/api";
 
 const LAST_LOGIN_PHONE_KEY = "jss_merchant_last_phone";
 
-const mode = ref<"apply" | "login">("apply");
+const mode = ref<"apply" | "login">("login");
 const loading = ref(false);
 const uploading = ref(false);
+const loggedIn = ref(false);
+const addStoreMode = ref(false);
 const loginPhone = ref("");
 const redirectUrl = ref("");
 const application = ref<StoreApplication | null>(null);
@@ -307,13 +317,27 @@ type PhoneNumberEvent = {
 
 onLoad((query) => {
   const redirect = query?.redirect;
+  const requestedMode = typeof query?.mode === "string" ? query.mode : "";
+  const requestedIntent = typeof query?.intent === "string" ? query.intent : "";
+  addStoreMode.value = requestedMode === "apply" && requestedIntent === "add-store";
   redirectUrl.value = typeof redirect === "string" ? redirect : "";
+  loggedIn.value = hasMerchantLogin();
 
-  if (hasMerchantLogin()) {
+  if (addStoreMode.value) {
+    mode.value = "apply";
+    prefillApplicationPhone();
+    return;
+  }
+
+  if (loggedIn.value) {
     setTimeout(() => {
       goAfterMerchantLogin(redirectUrl.value);
     }, 0);
     return;
+  }
+
+  if (requestedMode === "apply") {
+    mode.value = "apply";
   }
 
   const cachedPhone = uni.getStorageSync(LAST_LOGIN_PHONE_KEY);
@@ -351,6 +375,23 @@ function getWechatLoginCode() {
 
 function openLegal(type: "merchant" | "privacy" | "onboarding") {
   uni.navigateTo({ url: `/pages/legal/index?type=${type}` });
+}
+
+function goHome() {
+  uni.switchTab({ url: "/pages/home/index" });
+}
+
+function prefillApplicationPhone() {
+  const cachedPhone = uni.getStorageSync(LAST_LOGIN_PHONE_KEY);
+  if (typeof cachedPhone === "string" && /^1\d{10}$/.test(cachedPhone.trim())) {
+    applyForm.applicantPhone = cachedPhone.trim();
+    return;
+  }
+
+  const store = getCachedMerchantStore();
+  if (/^1\d{10}$/.test(store?.phone ?? "")) {
+    applyForm.applicantPhone = store?.phone ?? "";
+  }
 }
 
 function validateApplyForm() {
@@ -658,6 +699,13 @@ function saveLastLoginPhone(phone: string) {
   }
 }
 
+function rememberApplicationPhone(nextApplication?: StoreApplication | null) {
+  const phone = nextApplication?.applicantPhone?.trim();
+  if (!phone) return;
+  loginPhone.value = phone;
+  saveLastLoginPhone(phone);
+}
+
 async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = {}) {
   if (!loginPhone.value.trim()) {
     if (!options.silent) {
@@ -671,6 +719,7 @@ async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = 
     const phone = loginPhone.value.trim();
     saveLastLoginPhone(phone);
     application.value = await api.applicationStatus(phone);
+    rememberApplicationPhone(application.value);
     if (!application.value) {
       if (!options.silent) {
         uni.showToast({ title: "未找到申请记录", icon: "none" });
@@ -715,6 +764,7 @@ async function enterApprovedStore(options: { force?: boolean; silent?: boolean }
       return;
     }
     saveMerchantSession({ token: result.token, store: result.store, stores: result.stores });
+    loggedIn.value = true;
     if (!options.silent) {
       uni.showToast({ title: "已进入商家端", icon: "success" });
     }
@@ -754,6 +804,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
       phone
     });
     application.value = result.application ?? null;
+    rememberApplicationPhone(application.value);
     if (!result.canLogin || !result.token || !result.store) {
       uni.showToast({
         title: result.message || (phoneCode ? "暂不能登录" : "请授权微信手机号或填写入驻手机号"),
@@ -762,6 +813,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
       return;
     }
     saveMerchantSession({ token: result.token, store: result.store, stores: result.stores });
+    loggedIn.value = true;
     uni.showToast({ title: "登录成功", icon: "success" });
     setTimeout(() => {
       goAfterMerchantLogin(redirectUrl.value);
@@ -796,14 +848,27 @@ async function handleLogin(event?: PhoneNumberEvent) {
   margin: -12px -12px 0;
   padding: 24px 22px 42px;
   background:
-    radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.2), transparent 28%),
-    radial-gradient(circle at 90% 6%, rgba(255, 255, 255, 0.22), transparent 28%),
-    linear-gradient(135deg, #ff7a00, #ff9f1a);
+    linear-gradient(145deg, rgba(17, 24, 39, 0.94) 0%, rgba(31, 41, 55, 0.88) 48%),
+    linear-gradient(135deg, #ff7a00 0%, #ff9f1a 100%);
   color: #ffffff;
   box-shadow: 0 14px 30px rgba(255, 122, 0, 0.18);
 }
 
+.merchant-hero::after {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 118px;
+  height: 70px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 122, 0, 0.42), rgba(255, 255, 255, 0.05));
+  content: "";
+}
+
 .app-name {
+  position: relative;
+  z-index: 1;
   align-self: flex-start;
   border-radius: 999px;
   padding: 5px 10px;
@@ -813,28 +878,28 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-lockup {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 12px;
   width: fit-content;
   max-width: 100%;
-  border-radius: 22px;
   margin-top: 20px;
-  padding: 12px 14px 12px 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 16px 28px rgba(145, 64, 0, 0.16);
+  padding: 0;
 }
 
 .brand-mark {
   display: flex;
-  width: 54px;
-  height: 54px;
+  width: 60px;
+  height: 60px;
   align-items: center;
   justify-content: center;
-  flex: 0 0 54px;
+  flex: 0 0 60px;
   overflow: hidden;
-  border-radius: 18px;
-  background: #fff7ef;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.18);
 }
 
 .brand-mark-image {
@@ -850,7 +915,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-title {
-  color: #111111;
+  color: #ffffff;
   font-size: 21px;
   font-weight: 900;
   letter-spacing: 0;
@@ -858,13 +923,15 @@ async function handleLogin(event?: PhoneNumberEvent) {
 }
 
 .brand-desc {
-  color: #8a4b13;
+  color: rgba(255, 255, 255, 0.82);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.25;
 }
 
 .subtitle {
+  position: relative;
+  z-index: 1;
   max-width: 280px;
   margin-top: 14px;
   color: rgba(255, 255, 255, 0.9);
@@ -934,7 +1001,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
   border-radius: 18px;
   padding: 7px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 10px 28px rgba(17, 17, 17, 0.07);
 }
 
 .mode-tab {
@@ -956,6 +1023,18 @@ async function handleLogin(event?: PhoneNumberEvent) {
   display: flex;
   flex-direction: column;
   gap: 13px;
+  border-color: rgba(255, 122, 0, 0.08);
+  box-shadow: 0 16px 34px rgba(17, 17, 17, 0.07);
+}
+
+.notice-card {
+  border-radius: 16px;
+  padding: 11px 12px;
+  background: #fff7ed;
+  color: #a14a00;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .section-head,

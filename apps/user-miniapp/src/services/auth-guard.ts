@@ -43,11 +43,23 @@ function stringifyQuery(options?: Record<string, unknown>) {
     .join("&");
 }
 
+function browserRouteUrl() {
+  const locationLike = (globalThis as { location?: { hash?: string } }).location;
+  const hash = locationLike?.hash || "";
+  const hashRouteIndex = hash.indexOf("#/");
+
+  if (hashRouteIndex < 0) {
+    return "";
+  }
+
+  return normalizeUrl(hash.slice(hashRouteIndex + 1) || "/pages/home/index");
+}
+
 function currentPageUrl() {
   const pages = getCurrentPages() as PageLike[];
   const currentPage = pages[pages.length - 1];
   if (!currentPage?.route) {
-    return "/pages/home/index";
+    return browserRouteUrl() || "/pages/home/index";
   }
 
   const path = normalizeUrl(currentPage.route);

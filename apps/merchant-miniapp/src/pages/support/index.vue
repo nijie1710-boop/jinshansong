@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 const quickActions = [
-  { icon: "服", title: "商家服务协议", desc: "账号、商品和订单规则", type: "merchant" },
+  { icon: "服", title: "门店服务协议", desc: "账号、商品和订单规则", type: "merchant" },
   { icon: "入", title: "入驻协议", desc: "资料审核和经营要求", type: "onboarding" },
   { icon: "履", title: "履约售后", desc: "接单、备货和售后责任", type: "fulfillment" },
   { icon: "隐", title: "隐私政策", desc: "门店资料和数据使用", type: "privacy" }
