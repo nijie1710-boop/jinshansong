@@ -1,4 +1,4 @@
-import { Controller, Get, Headers } from "@nestjs/common";
+import { Controller, Get, Headers, Param, Post } from "@nestjs/common";
 import { AuthService } from "../auth/auth.service";
 import { OrderService } from "../order/order.service";
 
@@ -19,5 +19,21 @@ export class FinanceController {
   async settlements(@Headers("x-admin-token") adminToken?: string) {
     await this.authService.assertAdmin(adminToken);
     return this.orderService.settlementPreview();
+  }
+
+  @Get("settlement-requests")
+  async settlementRequests(@Headers("x-admin-token") adminToken?: string) {
+    await this.authService.assertAdmin(adminToken);
+    return this.orderService.adminSettlementRequests();
+  }
+
+  @Post("settlement-requests/:id/:action")
+  async settlementAction(
+    @Param("id") id: string,
+    @Param("action") action: "confirm" | "cancel" | "mark-paid",
+    @Headers("x-admin-token") adminToken?: string
+  ) {
+    const admin = await this.authService.assertAdmin(adminToken);
+    return this.orderService.adminSettlementAction(id, action, { adminId: admin.id });
   }
 }

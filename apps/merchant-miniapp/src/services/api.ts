@@ -72,6 +72,21 @@ export interface MerchantReconciliation {
   weeklyOrderCount: number;
   goodsAmount: number;
   weeklyCommission: number;
+  withdrawal?: {
+    availableAmount: number;
+    pendingReviewAmount: number;
+    approvedAmount: number;
+    paidAmount: number;
+    canApply: boolean;
+    latest?: {
+      id: string;
+      amount: number;
+      status: string;
+      statusText: string;
+      createdAt: string;
+      settleTime?: string | null;
+    } | null;
+  };
   items: {
     orderId: string;
     orderNo: string;
@@ -426,6 +441,8 @@ export const api = {
   categories: () => request<MerchantCategory[]>("/categories"),
   products: () => request<MerchantProduct[]>("/merchant/products"),
   reconciliation: () => request<MerchantReconciliation>("/merchant/reconciliation"),
+  applyWithdrawal: () =>
+    request<MerchantReconciliation>("/merchant/withdrawals", { method: "POST" }),
   updateStoreSettings: (data: {
     acceptOrderSwitch?: boolean;
     autoTransferSwitch?: boolean;

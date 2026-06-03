@@ -115,6 +115,18 @@ export class OrderController {
     return this.orderService.merchantReconciliation(resolvedStoreCode);
   }
 
+  @Post("merchant/withdrawals")
+  async applyMerchantWithdrawal(
+    @Headers("x-merchant-token") merchantToken?: string,
+    @Headers("x-store-code") storeCode?: string
+  ) {
+    const resolvedStoreCode = await this.authService.resolveMerchantStoreCode(
+      merchantToken,
+      storeCode
+    );
+    return this.orderService.applyMerchantWithdrawal(resolvedStoreCode);
+  }
+
   @Get("merchant/orders/:id")
   async getMerchantOrder(
     @Param("id") id: string,

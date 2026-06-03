@@ -17,6 +17,8 @@ import {
   Prisma,
   ProductReviewStatus,
   ProductStatus,
+  SettlementStatus,
+  SettlementType,
   StoreStatus
 } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -748,6 +750,12 @@ export class OrderService {
       include: orderInclude,
       orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }]
     });
+    const allCompletedOrders = await this.completedStoreSettlementOrders(store.id);
+    const withdrawalSummary = await this.storeWithdrawalSummary(store.id, allCompletedOrders);
+    const settlementByOrderId = await this.settlementStatusByOrderId(
+      orders.map((order) => order.id),
+      store.id
+    );
 
     const items = orders.map((order) => ({
       orderId: order.id,
@@ -758,7 +766,7 @@ export class OrderService {
       storeSettleAmount: toNumber(order.storeSettleAmount),
       storeCommission: toNumber(order.storeCommission),
       amount: money(toNumber(order.storeSettleAmount) + toNumber(order.storeCommission)),
-      status: "待结算"
+      status: settlementByOrderId.get(order.id) ?? "可提现"
     }));
 
     const pendingAmount = money(items.reduce((sum, item) => sum + item.amount, 0));
@@ -777,8 +785,64 @@ export class OrderService {
       weeklyOrderCount: orders.length,
       goodsAmount,
       weeklyCommission,
+      withdrawal: withdrawalSummary,
       items
     };
+  }
+
+  async applyMerchantWithdrawal(storeCode?: string) {
+    const store = await this.resolveMerchantStore(storeCode);
+    const orders = await this.completedStoreSettlementOrders(store.id);
+    const summary = await this.storeWithdrawalSummary(store.id, orders);
+
+    if (summary.pendingReviewAmount > 0) {
+      throw new BadRequestException("已有提现申请待审核，请等待后台处理");
+    }
+    if (summary.approvedAmount > 0) {
+      throw new BadRequestException("已有已审核提现待打款，请等待平台打款");
+    }
+
+    const reservedOrderIds = await this.reservedSettlementOrderIds(
+      orders.map((order) => order.id),
+      store.id
+    );
+    const availableOrders = orders.filter((order) => !reservedOrderIds.has(order.id));
+    const amount = money(
+      availableOrders.reduce((sum, order) => sum + this.storePayableAmount(order), 0)
+    );
+
+    if (availableOrders.length === 0 || amount <= 0) {
+      throw new BadRequestException("暂无可提现金额");
+    }
+
+    const periodStart = availableOrders.reduce(
+      (earliest, order) => {
+        const completedAt = order.completedAt ?? order.updatedAt;
+        return completedAt < earliest ? completedAt : earliest;
+      },
+      availableOrders[0]?.completedAt ?? availableOrders[0]?.updatedAt ?? new Date()
+    );
+    const periodEnd = new Date();
+
+    await this.prisma.settlement.create({
+      data: {
+        type: SettlementType.STORE,
+        targetId: store.id,
+        amount: decimal(amount),
+        periodStart,
+        periodEnd,
+        status: SettlementStatus.PENDING,
+        items: {
+          create: availableOrders.map((order) => ({
+            orderId: order.id,
+            amount: decimal(this.storePayableAmount(order)),
+            type: "STORE_PAYABLE"
+          }))
+        }
+      }
+    });
+
+    return this.merchantReconciliation(store.code);
   }
 
   async settlementPreview() {
@@ -790,6 +854,21 @@ export class OrderService {
       include: orderInclude,
       orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }]
     });
+    const claimedStoreItems = await this.prisma.settlementItem.findMany({
+      where: {
+        orderId: { in: orders.map((order) => order.id) },
+        settlement: {
+          type: SettlementType.STORE,
+          status: { not: SettlementStatus.CANCELLED }
+        }
+      },
+      select: { orderId: true }
+    });
+    const claimedStoreOrderIds = new Set(
+      claimedStoreItems
+        .map((item) => item.orderId)
+        .filter((orderId): orderId is string => Boolean(orderId))
+    );
 
     const period = currentWeekPeriod();
     const storeMap = new Map<string, { target: string; amount: number; orderCount: number }>();
@@ -798,7 +877,7 @@ export class OrderService {
 
     for (const order of orders) {
       const store = order.store ?? order.currentStore;
-      if (store) {
+      if (store && !claimedStoreOrderIds.has(order.id)) {
         const item = storeMap.get(store.id) ?? { target: store.name, amount: 0, orderCount: 0 };
         item.amount += toNumber(order.storeSettleAmount) + toNumber(order.storeCommission);
         item.orderCount += 1;
@@ -876,6 +955,270 @@ export class OrderService {
       completedOrderCount: orders.length,
       settlements
     };
+  }
+
+  async adminSettlementRequests() {
+    const settlements = await this.prisma.settlement.findMany({
+      include: {
+        items: true
+      },
+      orderBy: [{ createdAt: "desc" }]
+    });
+    const storeIds = [
+      ...new Set(
+        settlements
+          .filter((settlement) => settlement.type === SettlementType.STORE)
+          .map((settlement) => settlement.targetId)
+      )
+    ];
+    const stores = await this.prisma.store.findMany({
+      where: { id: { in: storeIds } },
+      select: { id: true, name: true, code: true, phone: true }
+    });
+    const storeMap = new Map(stores.map((store) => [store.id, store]));
+
+    return settlements.map((settlement) => {
+      const store = storeMap.get(settlement.targetId);
+      return {
+        id: settlement.id,
+        type: settlement.type,
+        typeText: this.settlementTypeText(settlement.type),
+        targetId: settlement.targetId,
+        targetName: store?.name ?? settlement.targetId,
+        targetCode: store?.code ?? "",
+        targetPhone: store?.phone ?? "",
+        amount: toNumber(settlement.amount),
+        orderCount: settlement.items.length,
+        period: `${dateLabel(settlement.periodStart)} 至 ${dateLabel(settlement.periodEnd)}`,
+        status: settlement.status,
+        statusText: this.settlementStatusText(settlement),
+        createdAt: settlement.createdAt.toISOString(),
+        settleTime: settlement.settleTime?.toISOString() ?? null
+      };
+    });
+  }
+
+  async adminSettlementAction(
+    settlementId: string,
+    action: "confirm" | "cancel" | "mark-paid",
+    _context: { adminId: string }
+  ) {
+    const settlement = await this.prisma.settlement.findUnique({
+      where: { id: settlementId },
+      include: { items: true }
+    });
+
+    if (!settlement) {
+      throw new NotFoundException("结算单不存在");
+    }
+
+    if (action === "confirm") {
+      if (settlement.status !== SettlementStatus.PENDING) {
+        throw new BadRequestException("只有待审核结算单可以审核通过");
+      }
+      await this.prisma.settlement.update({
+        where: { id: settlement.id },
+        data: { status: SettlementStatus.CONFIRMED }
+      });
+      return this.adminSettlementRequests();
+    }
+
+    if (action === "cancel") {
+      if (settlement.status === SettlementStatus.CONFIRMED && settlement.settleTime) {
+        throw new BadRequestException("已打款结算单不能驳回");
+      }
+      await this.prisma.settlement.update({
+        where: { id: settlement.id },
+        data: { status: SettlementStatus.CANCELLED }
+      });
+      return this.adminSettlementRequests();
+    }
+
+    if (action === "mark-paid") {
+      if (settlement.status !== SettlementStatus.CONFIRMED) {
+        throw new BadRequestException("请先审核通过后再标记打款");
+      }
+      if (settlement.settleTime) {
+        return this.adminSettlementRequests();
+      }
+
+      const orderIds = settlement.items
+        .map((item) => item.orderId)
+        .filter((orderId): orderId is string => Boolean(orderId));
+      await this.prisma.$transaction(async (tx) => {
+        await tx.settlement.update({
+          where: { id: settlement.id },
+          data: {
+            settleTime: new Date()
+          }
+        });
+
+        if (settlement.type === SettlementType.STORE && orderIds.length > 0) {
+          await tx.commissionRecord.updateMany({
+            where: {
+              orderId: { in: orderIds },
+              type: CommissionType.STORE,
+              targetId: settlement.targetId,
+              status: CommissionStatus.PENDING
+            },
+            data: {
+              status: CommissionStatus.SETTLED,
+              settledAt: new Date()
+            }
+          });
+        }
+      });
+      return this.adminSettlementRequests();
+    }
+
+    throw new BadRequestException("未知结算操作");
+  }
+
+  private completedStoreSettlementOrders(storeId: string) {
+    return this.prisma.order.findMany({
+      where: {
+        payStatus: PayStatus.PAID,
+        orderStatus: OrderStatus.COMPLETED,
+        OR: [{ storeId }, { currentStoreId: storeId }]
+      },
+      include: orderInclude,
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }]
+    });
+  }
+
+  private async storeWithdrawalSummary(storeId: string, orders: OrderWithRelations[]) {
+    const reservedOrderIds = await this.reservedSettlementOrderIds(
+      orders.map((order) => order.id),
+      storeId
+    );
+    const settlements = await this.prisma.settlement.findMany({
+      where: {
+        type: SettlementType.STORE,
+        targetId: storeId
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    const availableAmount = money(
+      orders
+        .filter((order) => !reservedOrderIds.has(order.id))
+        .reduce((sum, order) => sum + this.storePayableAmount(order), 0)
+    );
+    const pendingReviewAmount = money(
+      settlements
+        .filter((settlement) => settlement.status === SettlementStatus.PENDING)
+        .reduce((sum, settlement) => sum + toNumber(settlement.amount), 0)
+    );
+    const approvedAmount = money(
+      settlements
+        .filter(
+          (settlement) => settlement.status === SettlementStatus.CONFIRMED && !settlement.settleTime
+        )
+        .reduce((sum, settlement) => sum + toNumber(settlement.amount), 0)
+    );
+    const paidAmount = money(
+      settlements
+        .filter(
+          (settlement) =>
+            settlement.status === SettlementStatus.CONFIRMED && Boolean(settlement.settleTime)
+        )
+        .reduce((sum, settlement) => sum + toNumber(settlement.amount), 0)
+    );
+    const latest = settlements[0];
+
+    return {
+      availableAmount,
+      pendingReviewAmount,
+      approvedAmount,
+      paidAmount,
+      canApply: availableAmount > 0 && pendingReviewAmount === 0 && approvedAmount === 0,
+      latest: latest
+        ? {
+            id: latest.id,
+            amount: toNumber(latest.amount),
+            status: latest.status,
+            statusText: this.settlementStatusText(latest),
+            createdAt: latest.createdAt.toISOString(),
+            settleTime: latest.settleTime?.toISOString() ?? null
+          }
+        : null
+    };
+  }
+
+  private async reservedSettlementOrderIds(orderIds: string[], storeId: string) {
+    if (orderIds.length === 0) {
+      return new Set<string>();
+    }
+
+    const items = await this.prisma.settlementItem.findMany({
+      where: {
+        orderId: { in: orderIds },
+        settlement: {
+          type: SettlementType.STORE,
+          targetId: storeId,
+          status: { not: SettlementStatus.CANCELLED }
+        }
+      },
+      select: {
+        orderId: true
+      }
+    });
+
+    return new Set(items.map((item) => item.orderId).filter((id): id is string => Boolean(id)));
+  }
+
+  private async settlementStatusByOrderId(orderIds: string[], storeId: string) {
+    if (orderIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const items = await this.prisma.settlementItem.findMany({
+      where: {
+        orderId: { in: orderIds },
+        settlement: {
+          type: SettlementType.STORE,
+          targetId: storeId
+        }
+      },
+      include: {
+        settlement: true
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    const map = new Map<string, string>();
+
+    for (const item of items) {
+      if (!item.orderId || map.has(item.orderId)) {
+        continue;
+      }
+      map.set(item.orderId, this.settlementStatusText(item.settlement));
+    }
+
+    return map;
+  }
+
+  private storePayableAmount(order: OrderWithRelations) {
+    return money(toNumber(order.storeSettleAmount) + toNumber(order.storeCommission));
+  }
+
+  private settlementTypeText(type: SettlementType) {
+    const labels: Record<SettlementType, string> = {
+      STORE: "商家提现",
+      RIDER: "骑手结算",
+      PROMOTER: "推广结算"
+    };
+    return labels[type];
+  }
+
+  private settlementStatusText(settlement: { status: SettlementStatus; settleTime?: Date | null }) {
+    if (settlement.status === SettlementStatus.CANCELLED) {
+      return "已驳回";
+    }
+    if (settlement.status === SettlementStatus.PENDING) {
+      return "待审核";
+    }
+    return settlement.settleTime ? "已打款" : "已审核待打款";
   }
 
   async processStoreAcceptTimeouts(now = new Date()) {

@@ -6,6 +6,43 @@
       <text class="muted">{{ data.period || "本周" }} · 商品货款 + 履约佣金</text>
     </view>
 
+    <view class="card withdraw-card">
+      <view class="withdraw-head">
+        <view>
+          <text class="section-title">提现处理</text>
+          <text class="muted">平台审核通过后人工打款到商家账户</text>
+        </view>
+        <text class="status-chip">{{ withdrawal.latest?.statusText || "可申请" }}</text>
+      </view>
+      <view class="withdraw-balance">
+        <view>
+          <text class="muted">当前可申请</text>
+          <text class="withdraw-amount">¥{{ withdrawal.availableAmount }}</text>
+        </view>
+        <button
+          class="withdraw-button"
+          :disabled="!withdrawal.canApply || applying"
+          @tap="applyWithdrawal"
+        >
+          {{ applying ? "提交中..." : "申请提现" }}
+        </button>
+      </view>
+      <view class="withdraw-grid">
+        <view>
+          <text>¥{{ withdrawal.pendingReviewAmount }}</text>
+          <text class="muted">待审核</text>
+        </view>
+        <view>
+          <text>¥{{ withdrawal.approvedAmount }}</text>
+          <text class="muted">待打款</text>
+        </view>
+        <view>
+          <text>¥{{ withdrawal.paidAmount }}</text>
+          <text class="muted">已打款</text>
+        </view>
+      </view>
+    </view>
+
     <view class="metric-grid">
       <view v-for="item in metrics" :key="item.label" class="metric-card">
         <text class="metric-value">{{ item.value }}</text>
@@ -46,8 +83,29 @@ const data = ref<MerchantReconciliation>({
   weeklyOrderCount: 0,
   goodsAmount: 0,
   weeklyCommission: 0,
+  withdrawal: {
+    availableAmount: 0,
+    pendingReviewAmount: 0,
+    approvedAmount: 0,
+    paidAmount: 0,
+    canApply: false,
+    latest: null
+  },
   items: []
 });
+const applying = ref(false);
+
+const withdrawal = computed(
+  () =>
+    data.value.withdrawal ?? {
+      availableAmount: 0,
+      pendingReviewAmount: 0,
+      approvedAmount: 0,
+      paidAmount: 0,
+      canApply: false,
+      latest: null
+    }
+);
 
 const metrics = computed(() => [
   { label: "本周订单数", value: String(data.value.weeklyOrderCount) },
@@ -61,6 +119,23 @@ async function loadReconciliation() {
   } catch {
     data.value = { ...data.value, items: [] };
     uni.showToast({ title: "对账数据加载失败", icon: "none" });
+  }
+}
+
+async function applyWithdrawal() {
+  if (!withdrawal.value.canApply || applying.value) {
+    return;
+  }
+
+  applying.value = true;
+  try {
+    data.value = await api.applyWithdrawal();
+    uni.showToast({ title: "提现申请已提交", icon: "success" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "提现申请失败";
+    uni.showToast({ title: message, icon: "none" });
+  } finally {
+    applying.value = false;
   }
 }
 
@@ -98,6 +173,69 @@ onPullDownRefresh(() => {
 
 .amount {
   font-size: 32px;
+  font-weight: 800;
+}
+
+.withdraw-card {
+  gap: 14px;
+}
+
+.withdraw-head,
+.withdraw-balance,
+.withdraw-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.withdraw-head {
+  gap: 10px;
+}
+
+.status-chip {
+  border-radius: 999px;
+  background: #fff2e8;
+  color: #ff7a00;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.withdraw-amount {
+  display: block;
+  margin-top: 4px;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.withdraw-button {
+  width: 116px;
+  height: 42px;
+  border-radius: 999px;
+  background: #ff7a00;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 42px;
+}
+
+.withdraw-button[disabled] {
+  background: #f1f1f1;
+  color: #9a9a9a;
+}
+
+.withdraw-grid {
+  border-radius: 16px;
+  background: #f7f8fa;
+  padding: 12px;
+  text-align: center;
+}
+
+.withdraw-grid view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
   font-weight: 800;
 }
 

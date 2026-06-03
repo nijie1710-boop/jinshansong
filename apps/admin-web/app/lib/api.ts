@@ -342,6 +342,23 @@ export interface SettlementPreview {
   }[];
 }
 
+export interface AdminSettlementRequest {
+  id: string;
+  type: string;
+  typeText: string;
+  targetId: string;
+  targetName: string;
+  targetCode: string;
+  targetPhone: string;
+  amount: number;
+  orderCount: number;
+  period: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  statusText: string;
+  createdAt: string;
+  settleTime?: string | null;
+}
+
 const emptyFinanceSummary: FinanceSummary = {
   totalIncome: 0,
   totalCost: 0,
@@ -417,8 +434,7 @@ async function getLocalAdminToken() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       account: process.env.ADMIN_ACCOUNT ?? process.env.ADMIN_DEFAULT_ACCOUNT ?? "admin",
-      password:
-        process.env.ADMIN_PASSWORD ?? process.env.ADMIN_DEFAULT_PASSWORD ?? "admin123456"
+      password: process.env.ADMIN_PASSWORD ?? process.env.ADMIN_DEFAULT_PASSWORD ?? "admin123456"
     }),
     cache: "no-store"
   })
@@ -548,6 +564,17 @@ export function getSettlementPreview() {
     completedOrderCount: 0,
     settlements: []
   });
+}
+
+export function getAdminSettlementRequests() {
+  return apiGet<AdminSettlementRequest[]>("/admin/finance/settlement-requests", []);
+}
+
+export function operateSettlementRequest(id: string, action: "confirm" | "cancel" | "mark-paid") {
+  return apiPost<AdminSettlementRequest[]>(
+    `/admin/finance/settlement-requests/${id}/${action}`,
+    {}
+  );
 }
 
 export function getAdminProducts() {
