@@ -170,6 +170,8 @@ import {
   type ApiAddress,
   type ApiProduct,
   type ApiQuote,
+  type PaymentStartResult,
+  type WechatPaymentParams,
   type PublicConfig
 } from "../../services/api";
 import {
@@ -391,6 +393,57 @@ function isHttpImageBlocked(url?: string) {
   return false;
 }
 
+function paymentErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "errMsg" in error) {
+    const errMsg = String((error as { errMsg?: unknown }).errMsg ?? "");
+    if (errMsg.includes("cancel")) {
+      return "已取消支付";
+    }
+    if (errMsg) {
+      return errMsg;
+    }
+  }
+  return error instanceof Error ? error.message : "微信支付未完成";
+}
+
+function requestWechatPayment(payment: WechatPaymentParams) {
+  return new Promise<void>((resolve, reject) => {
+    // #ifdef MP-WEIXIN
+    uni.requestPayment({
+      provider: "wxpay",
+      timeStamp: payment.timeStamp,
+      nonceStr: payment.nonceStr,
+      package: payment.package,
+      signType: payment.signType,
+      paySign: payment.paySign,
+      success: () => resolve(),
+      fail: (error) => reject(new Error(paymentErrorMessage(error)))
+    });
+    // #endif
+
+    // #ifndef MP-WEIXIN
+    reject(new Error("请在微信小程序内完成支付"));
+    // #endif
+  });
+}
+
+async function finishPayment(paymentResult: PaymentStartResult) {
+  if (paymentResult.mode !== "wechat") {
+    return paymentResult.order;
+  }
+
+  await requestWechatPayment(paymentResult.payment);
+  await new Promise((resolve) => {
+    setTimeout(resolve, 800);
+  });
+
+  try {
+    return await api.order(paymentResult.order.id);
+  } catch {
+    return paymentResult.order;
+  }
+}
+
 async function submitOrder() {
   if (submitting.value) {
     return;
@@ -415,7 +468,8 @@ async function submitOrder() {
       riderNo: riderNo.value.trim(),
       promoterCode: promoterCode.value.trim()
     });
-    const paid = await api.mockPay(created.id);
+    const paymentResult = await api.wechatPay(created.id);
+    const paid = await finishPayment(paymentResult);
     if (fromCart.value) {
       removeCartItems(confirmItems.value.map((item) => item.skuId));
       clearCheckoutCartItems();

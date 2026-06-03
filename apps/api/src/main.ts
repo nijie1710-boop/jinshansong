@@ -1,15 +1,23 @@
 import "reflect-metadata";
 import { existsSync, mkdirSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 
+type RawBodyRequest = IncomingMessage & { rawBody?: Buffer };
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false
   });
-  app.useBodyParser("json", { limit: "12mb" });
+  app.useBodyParser("json", {
+    limit: "12mb",
+    verify: (request: IncomingMessage, _response: ServerResponse, buffer: Buffer) => {
+      (request as RawBodyRequest).rawBody = Buffer.from(buffer);
+    }
+  });
   app.useBodyParser("urlencoded", { extended: true, limit: "12mb" });
   app.setGlobalPrefix("api");
   app.enableCors();

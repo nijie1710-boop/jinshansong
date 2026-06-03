@@ -326,101 +326,128 @@ export class OrderService {
       throw new BadRequestException("订单未匹配到可履约门店");
     }
 
-    const paidOrder = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.order.findUnique({
-        where: { id: existing.id },
-        include: orderInclude
-      });
-      if (!current) {
-        throw new NotFoundException("订单不存在");
+    const paidOrder = await this.completePaidOrder({
+      orderId: existing.id,
+      channel: "MOCK",
+      outTradeNo: `MOCKPAY-${existing.orderNo}`,
+      transactionNo: `MOCKTX-${existing.orderNo}`,
+      operatorId: user.id,
+      action: "MOCK_PAY",
+      message: "模拟支付成功，已预占门店库存",
+      requestPayload: {
+        mode: "mock",
+        source: "miniapp"
+      },
+      notifyPayload: {
+        paidAt: new Date().toISOString()
       }
-      if (current.payStatus === PayStatus.PAID) {
-        return current;
-      }
-      if (current.payStatus !== PayStatus.UNPAID || current.orderStatus !== OrderStatus.CREATED) {
-        throw new BadRequestException("当前订单状态不可支付");
-      }
-      if (!current.currentStoreId) {
-        throw new BadRequestException("订单未匹配到可履约门店");
-      }
+    });
 
-      await this.reserveStoreStock(tx, current.currentStoreId, current.items);
+    return this.formatOrder(paidOrder);
+  }
 
-      const deadlineAt = new Date(Date.now() + 3 * 60 * 1000);
-      await tx.storeTransferLog.create({
-        data: {
-          orderId: current.id,
-          fromStoreId: null,
-          toStoreId: current.currentStoreId,
-          reason: "INITIAL_MATCH",
-          transferNo: 1,
-          deadlineAt
+  async prepareWechatPayment(orderId: string, userToken?: string) {
+    const user = await this.userService.resolveUser(userToken);
+    const order = await this.getOrderEntity(orderId);
+    this.assertUserOwnsOrder(order, user.id);
+
+    if (!user.openId) {
+      throw new BadRequestException("当前用户未完成微信登录，无法发起微信支付");
+    }
+    if (!order.currentStoreId) {
+      throw new BadRequestException("订单未匹配到可履约门店");
+    }
+    if (order.payStatus === PayStatus.PAID) {
+      return {
+        alreadyPaid: true,
+        openId: user.openId,
+        outTradeNo: order.orderNo,
+        amountCents: Math.round(toNumber(order.payableAmount) * 100),
+        description: this.paymentDescription(order),
+        order,
+        formattedOrder: this.formatOrder(order)
+      };
+    }
+    if (order.payStatus !== PayStatus.UNPAID || order.orderStatus !== OrderStatus.CREATED) {
+      throw new BadRequestException("当前订单状态不可支付");
+    }
+
+    const outTradeNo = order.orderNo;
+    const amountCents = Math.round(toNumber(order.payableAmount) * 100);
+    if (amountCents <= 0) {
+      throw new BadRequestException("订单金额异常，无法发起支付");
+    }
+
+    await this.prisma.paymentRecord.upsert({
+      where: { outTradeNo },
+      create: {
+        orderId: order.id,
+        type: PaymentRecordType.PAYMENT,
+        channel: "WECHAT_MINIPROGRAM",
+        outTradeNo,
+        amount: order.payableAmount,
+        status: PaymentRecordStatus.PENDING,
+        requestPayload: {
+          mode: "wechat",
+          source: "miniapp"
         }
-      });
-
-      if (toNumber(current.userDiscountAmount) > 0) {
-        if (current.user.firstOrderStatus === FirstOrderStatus.NOT_USED) {
-          await tx.user.update({
-            where: { id: current.userId },
-            data: { firstOrderStatus: FirstOrderStatus.USED, isNewUser: false }
-          });
-        } else {
-          await this.markAutoUsedCoupon(tx, current.userId);
+      },
+      update: {
+        channel: "WECHAT_MINIPROGRAM",
+        amount: order.payableAmount,
+        status: PaymentRecordStatus.PENDING,
+        requestPayload: {
+          mode: "wechat",
+          source: "miniapp",
+          retriedAt: new Date().toISOString()
         }
       }
+    });
 
-      const result = await tx.order.updateMany({
-        where: {
-          id: current.id,
-          payStatus: PayStatus.UNPAID,
-          orderStatus: OrderStatus.CREATED
-        },
-        data: {
-          payStatus: PayStatus.PAID,
-          orderStatus: OrderStatus.WAITING_STORE_ACCEPT,
-          paidAt: new Date(),
-          inventoryReservedAt: new Date()
+    return {
+      alreadyPaid: false,
+      openId: user.openId,
+      outTradeNo,
+      amountCents,
+      description: this.paymentDescription(order),
+      order,
+      formattedOrder: this.formatOrder(order)
+    };
+  }
+
+  async markWechatPaymentSuccess(data: {
+    outTradeNo: string;
+    transactionNo: string;
+    amountCents: number;
+    notifyPayload: Prisma.InputJsonValue;
+  }) {
+    const paymentRecord = await this.prisma.paymentRecord.findUnique({
+      where: { outTradeNo: data.outTradeNo },
+      include: {
+        order: {
+          include: orderInclude
         }
-      });
-
-      if (result.count !== 1) {
-        throw new BadRequestException("订单状态已变化，请刷新后重试");
       }
+    });
 
-      await tx.paymentRecord.create({
-        data: {
-          orderId: current.id,
-          type: PaymentRecordType.PAYMENT,
-          channel: "MOCK",
-          outTradeNo: `MOCKPAY-${current.orderNo}`,
-          transactionNo: `MOCKTX-${current.orderNo}`,
-          amount: current.payableAmount,
-          status: PaymentRecordStatus.SUCCESS,
-          requestPayload: {
-            mode: "mock",
-            source: "miniapp"
-          },
-          notifyPayload: {
-            paidAt: new Date().toISOString()
-          },
-          completedAt: new Date()
-        }
-      });
-      await this.createCommissionRecords(tx, current);
-      await this.logOrderAction(tx, {
-        orderId: current.id,
-        action: "MOCK_PAY",
-        fromStatus: current.orderStatus,
-        toStatus: OrderStatus.WAITING_STORE_ACCEPT,
-        operatorType: "USER",
-        operatorId: user.id,
-        message: "模拟支付成功，已预占门店库存"
-      });
+    if (!paymentRecord) {
+      throw new NotFoundException("支付记录不存在");
+    }
 
-      return tx.order.findUniqueOrThrow({
-        where: { id: current.id },
-        include: orderInclude
-      });
+    const expectedAmountCents = Math.round(toNumber(paymentRecord.order.payableAmount) * 100);
+    if (expectedAmountCents !== data.amountCents) {
+      throw new BadRequestException("微信支付金额与订单金额不一致");
+    }
+
+    const paidOrder = await this.completePaidOrder({
+      orderId: paymentRecord.orderId,
+      channel: "WECHAT_MINIPROGRAM",
+      outTradeNo: data.outTradeNo,
+      transactionNo: data.transactionNo,
+      operatorId: "wechat-pay",
+      action: "WECHAT_PAY",
+      message: "微信支付成功，已预占门店库存",
+      notifyPayload: data.notifyPayload
     });
 
     return this.formatOrder(paidOrder);
@@ -1799,6 +1826,153 @@ export class OrderService {
     }
   }
 
+  private async completePaidOrder(input: {
+    orderId: string;
+    channel: string;
+    outTradeNo: string;
+    transactionNo: string;
+    operatorId: string;
+    action: string;
+    message: string;
+    requestPayload?: Prisma.InputJsonValue;
+    notifyPayload?: Prisma.InputJsonValue;
+  }) {
+    const flowConfig = await this.systemConfig("order_flow", {
+      storeAcceptTimeoutMinutes: 3
+    });
+    const timeoutMinutes = numberFromConfig(flowConfig, "storeAcceptTimeoutMinutes", 3);
+    const completedAt = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: input.orderId },
+        include: orderInclude
+      });
+
+      if (!order.currentStoreId) {
+        throw new BadRequestException("订单未匹配到可履约门店");
+      }
+
+      if (order.payStatus === PayStatus.PAID) {
+        await tx.paymentRecord.upsert({
+          where: { outTradeNo: input.outTradeNo },
+          create: {
+            orderId: order.id,
+            type: PaymentRecordType.PAYMENT,
+            channel: input.channel,
+            outTradeNo: input.outTradeNo,
+            transactionNo: input.transactionNo,
+            amount: order.payableAmount,
+            status: PaymentRecordStatus.SUCCESS,
+            requestPayload: input.requestPayload,
+            notifyPayload: input.notifyPayload,
+            completedAt
+          },
+          update: {
+            transactionNo: input.transactionNo,
+            status: PaymentRecordStatus.SUCCESS,
+            notifyPayload: input.notifyPayload,
+            completedAt
+          }
+        });
+
+        return order;
+      }
+
+      if (order.payStatus !== PayStatus.UNPAID || order.orderStatus !== OrderStatus.CREATED) {
+        throw new BadRequestException("当前订单状态不可支付");
+      }
+
+      await this.reserveStoreStock(tx, order.currentStoreId, order.items);
+      await tx.storeTransferLog.create({
+        data: {
+          orderId: order.id,
+          fromStoreId: null,
+          toStoreId: order.currentStoreId,
+          reason: "INITIAL_MATCH",
+          transferNo: 1,
+          deadlineAt: new Date(Date.now() + timeoutMinutes * 60 * 1000)
+        }
+      });
+
+      const result = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          payStatus: PayStatus.UNPAID,
+          orderStatus: OrderStatus.CREATED
+        },
+        data: {
+          payStatus: PayStatus.PAID,
+          orderStatus: OrderStatus.WAITING_STORE_ACCEPT,
+          paidAt: completedAt,
+          inventoryReservedAt: completedAt
+        }
+      });
+
+      if (result.count !== 1) {
+        throw new BadRequestException("订单状态已变化，请刷新后重试");
+      }
+
+      await tx.paymentRecord.upsert({
+        where: { outTradeNo: input.outTradeNo },
+        create: {
+          orderId: order.id,
+          type: PaymentRecordType.PAYMENT,
+          channel: input.channel,
+          outTradeNo: input.outTradeNo,
+          transactionNo: input.transactionNo,
+          amount: order.payableAmount,
+          status: PaymentRecordStatus.SUCCESS,
+          requestPayload: input.requestPayload,
+          notifyPayload: input.notifyPayload,
+          completedAt
+        },
+        update: {
+          transactionNo: input.transactionNo,
+          amount: order.payableAmount,
+          status: PaymentRecordStatus.SUCCESS,
+          requestPayload: input.requestPayload,
+          notifyPayload: input.notifyPayload,
+          completedAt
+        }
+      });
+      if (toNumber(order.userDiscountAmount) > 0) {
+        if (order.user.firstOrderStatus === FirstOrderStatus.NOT_USED) {
+          await tx.user.update({
+            where: { id: order.userId },
+            data: {
+              isNewUser: false,
+              firstOrderStatus: FirstOrderStatus.USED
+            }
+          });
+        } else {
+          await this.markAutoUsedCoupon(tx, order.userId);
+        }
+      }
+      await this.logOrderAction(tx, {
+        orderId: order.id,
+        action: input.action,
+        fromStatus: order.orderStatus,
+        toStatus: OrderStatus.WAITING_STORE_ACCEPT,
+        operatorType: input.channel === "MOCK" ? "USER" : "SYSTEM",
+        operatorId: input.operatorId,
+        message: input.message,
+        metadata: input.notifyPayload
+      });
+
+      const paidOrder = await tx.order.findUniqueOrThrow({
+        where: { id: order.id },
+        include: orderInclude
+      });
+      await this.createCommissionRecords(tx, paidOrder);
+
+      return tx.order.findUniqueOrThrow({
+        where: { id: order.id },
+        include: orderInclude
+      });
+    });
+  }
+
   private async reserveStoreStock(
     tx: Prisma.TransactionClient,
     storeId: string,
@@ -2010,6 +2184,11 @@ export class OrderService {
     }
 
     throw new BadRequestException("订单号生成失败，请重试");
+  }
+
+  private paymentDescription(order: OrderWithRelations) {
+    const firstItem = order.items[0]?.productName ?? "即时零售订单";
+    return `金闪送-${firstItem}`.slice(0, 80);
   }
 
   private buildDailyProfit(orders: OrderWithRelations[]) {

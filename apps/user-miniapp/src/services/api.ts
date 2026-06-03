@@ -191,6 +191,26 @@ export type WechatLoginPayload = {
   nickname?: string;
 };
 
+export interface WechatPaymentParams {
+  timeStamp: string;
+  nonceStr: string;
+  package: string;
+  signType: "RSA";
+  paySign: string;
+}
+
+export type PaymentStartResult =
+  | {
+      mode: "mock" | "paid";
+      order: ApiOrder;
+    }
+  | {
+      mode: "wechat";
+      order: ApiOrder;
+      outTradeNo: string;
+      payment: WechatPaymentParams;
+    };
+
 export type ProductQuery = {
   keyword?: string;
   latitude?: number;
@@ -346,6 +366,8 @@ export const api = {
   }) => request<ApiOrder>("/orders", { method: "POST", data }),
   mockPay: (orderId: string) =>
     request<ApiOrder>(`/payments/${orderId}/mock-pay`, { method: "POST" }),
+  wechatPay: (orderId: string) =>
+    request<PaymentStartResult>(`/payments/${orderId}/wechat-jsapi`, { method: "POST" }),
   myOrders: () => request<ApiOrder[]>("/orders/my"),
   order: (id: string) => request<ApiOrder>(`/orders/${id}`)
 };
