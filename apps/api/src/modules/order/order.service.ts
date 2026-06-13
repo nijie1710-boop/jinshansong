@@ -82,6 +82,11 @@ function money(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function normalizeOptionalCode(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function decimal(value: number) {
   return money(value).toFixed(2);
 }
@@ -268,8 +273,8 @@ export class OrderService {
         receiverAddress: address.detail,
         receiverLatitude: address.latitude,
         receiverLongitude: address.longitude,
-        riderNo: dto.riderNo?.trim() || "0086",
-        promoterCode: dto.promoterCode?.trim() || null,
+        riderNo: normalizeOptionalCode(dto.riderNo),
+        promoterCode: normalizeOptionalCode(dto.promoterCode),
         goodsAmount: decimal(quote.goodsAmount),
         storeSettleAmount: decimal(quote.storeSettleAmount),
         deliveryFeeCost: decimal(quote.deliveryFeeCost),
@@ -601,7 +606,7 @@ export class OrderService {
           action: "MERCHANT_READY",
           operatorType: "MERCHANT",
           operatorId: store.id,
-          message: "商家备货完成"
+          message: "商户备货完成"
         }
       );
       await this.deliveryService.notifyReady(order.id);
@@ -1204,7 +1209,7 @@ export class OrderService {
 
   private settlementTypeText(type: SettlementType) {
     const labels: Record<SettlementType, string> = {
-      STORE: "商家提现",
+      STORE: "商户提现",
       RIDER: "骑手结算",
       PROMOTER: "推广结算"
     };
@@ -1342,7 +1347,7 @@ export class OrderService {
         quantity: item.quantity
       })),
       expectedFee: fallbackDeliveryFeeCost,
-      riderNo: dto.riderNo?.trim() || "0086"
+      riderNo: normalizeOptionalCode(dto.riderNo)
     });
     const deliveryFeeCost = deliveryQuote.selected?.feeCost ?? fallbackDeliveryFeeCost;
     const storeCommission = numberFromConfig(commissionConfig, "storeFixedCommission", 1);
@@ -1520,7 +1525,7 @@ export class OrderService {
     ]);
 
     if (address.city !== serviceCity) {
-      throw new BadRequestException(`金闪送第一阶段仅支持${serviceCity}同城订单`);
+      throw new BadRequestException(`金泽快送第一阶段仅支持${serviceCity}同城订单`);
     }
 
     if (!enabledDistricts.includes(address.district)) {
@@ -1548,7 +1553,7 @@ export class OrderService {
     });
 
     if (!store) {
-      throw new BadRequestException("暂无可用商家门店");
+      throw new BadRequestException("暂无可用商户门店");
     }
 
     return store;
@@ -1634,7 +1639,7 @@ export class OrderService {
         toStatus: OrderStatus.STORE_ACCEPTED,
         operatorType: "MERCHANT",
         operatorId: storeId,
-        message: order.inventoryReservedAt ? "商家接单" : "商家接单并补预占库存"
+        message: order.inventoryReservedAt ? "商户接单" : "商户接单并补预占库存"
       });
 
       return tx.order.findUniqueOrThrow({
@@ -1758,7 +1763,7 @@ export class OrderService {
           toStatus: OrderStatus.TRANSFERRED,
           operatorType: "MERCHANT",
           operatorId: order.currentStoreId ?? undefined,
-          message: "商家拒单，系统释放原门店库存并转给下一家门店",
+          message: "商户拒单，系统释放原门店库存并转给下一家门店",
           metadata: { toStoreId: nextStore.store.id, rejectCount: nextRejectCount }
         });
 
@@ -1780,7 +1785,7 @@ export class OrderService {
           action: "STORE_REJECT_NO_STORE_REFUND",
           operatorType: "MERCHANT",
           operatorId: order.currentStoreId ?? undefined,
-          message: "商家拒单后无可接门店，系统模拟退款"
+          message: "商户拒单后无可接门店，系统模拟退款"
         }
       );
     }
@@ -2531,7 +2536,7 @@ export class OrderService {
 
   private paymentDescription(order: OrderWithRelations) {
     const firstItem = order.items[0]?.productName ?? "即时零售订单";
-    return `金闪送-${firstItem}`.slice(0, 80);
+    return `金泽快送-${firstItem}`.slice(0, 80);
   }
 
   private buildDailyProfit(orders: OrderWithRelations[]) {
@@ -2616,7 +2621,7 @@ export class OrderService {
       storeName: store?.name ?? "待匹配门店",
       storePhone: store?.phone ?? "",
       storeAddress: store?.address ?? "",
-      riderNo: order.riderNo ?? "0086",
+      riderNo: order.riderNo ?? "",
       deliveryTask: order.deliveryTask
         ? {
             id: order.deliveryTask.id,

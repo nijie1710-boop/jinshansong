@@ -40,7 +40,7 @@
         </text>
       </view>
       <text class="store-switch-note">
-        同一个商家手机号可管理多个已审核门店；切换后商品、订单、对账都会读取当前门店数据。
+        同一个商户手机号可管理多个已审核门店；切换后商品、订单、对账都会读取当前门店数据。
       </text>
       <button class="ghost-button add-store-button" @tap="goApplyStore">申请新门店</button>
     </view>
@@ -319,7 +319,7 @@ async function switchStore(target: MerchantStore) {
 function switchAccount() {
   uni.showModal({
     title: "切换账号",
-    content: "退出当前商家登录后，可重新使用其他微信或手机号登录。",
+    content: "退出当前商户登录后，可重新使用其他微信或手机号登录。",
     confirmText: "退出",
     confirmColor: "#ff3b30",
     success(result) {

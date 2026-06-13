@@ -2,7 +2,7 @@
   <view class="page support-page">
     <view class="support-hero">
       <view>
-        <text class="eyebrow">金闪送商家支持</text>
+        <text class="eyebrow">金泽快送商户支持</text>
         <text class="title">平台支持与规则</text>
         <text class="desc">入驻审核、商品上架、订单履约、配送绑定和结算规则统一查看。</text>
       </view>
@@ -31,7 +31,7 @@
     </view>
 
     <view class="card section">
-      <text class="section-title">商家处理事项</text>
+      <text class="section-title">商户处理事项</text>
       <view v-for="item in todoItems" :key="item.title" class="todo-row">
         <view>
           <text class="todo-title">{{ item.title }}</text>

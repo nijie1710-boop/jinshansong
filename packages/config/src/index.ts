@@ -6,7 +6,7 @@ export const appPorts = {
 } as const;
 
 export const brand = {
-  name: "金闪送",
+  name: "金泽快送",
   slogan: "福州数码配件，快速到家",
   primaryColor: "#FF7A00",
   accentColor: "#FFB020",

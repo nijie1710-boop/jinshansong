@@ -25,7 +25,7 @@
     </view>
 
     <view class="card product-card">
-      <view class="product-image">金闪送</view>
+      <view class="product-image">金泽快送</view>
       <view class="product-info">
         <text class="product-name">{{ order.productName }}</text>
         <text class="muted">骑手编号：{{ order.riderNo }} · x{{ order.quantity }}</text>
@@ -67,7 +67,7 @@
         </view>
       </view>
       <view v-else class="delivery-empty">
-        <text>商家接单后会自动呼叫聚合配送平台。</text>
+        <text>商户接单后会自动呼叫聚合配送平台。</text>
       </view>
       <button
         v-if="deliveryFailed"

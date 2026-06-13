@@ -32,6 +32,11 @@ export class AuthController {
     return this.authService.merchantWechatLogin(body);
   }
 
+  @Post("auth/merchant/wechat-phone")
+  merchantWechatPhone(@Body() body: { phoneCode?: string; phone?: string }) {
+    return this.authService.merchantWechatPhone(body);
+  }
+
   @Post("auth/merchant/apply")
   merchantApply(
     @Body()
@@ -49,11 +54,6 @@ export class AuthController {
     }
   ) {
     return this.authService.merchantApply(body);
-  }
-
-  @Post("auth/merchant/login")
-  merchantLogin(@Body() body: { phone?: string }) {
-    return this.authService.merchantLogin(body);
   }
 
   @Get("auth/merchant/stores")

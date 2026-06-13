@@ -3,10 +3,17 @@ import { resolve } from "node:path";
 
 const root = process.cwd();
 const envPath = resolve(root, readArg("env") || ".env.production");
-const env = parseEnvFile(envPath);
+const env = {
+  ...parseEnvFile(envPath),
+  ...process.env
+};
 const checks = [];
 
-addCheck(existsSync(envPath), "error", ".env.production 文件存在");
+addCheck(
+  existsSync(envPath) || Boolean(process.env.DATABASE_URL),
+  "error",
+  ".env.production 文件存在或 Docker 环境变量已注入"
+);
 addRequired("API_DOMAIN");
 addRequired("ADMIN_DOMAIN");
 addRequired("DATABASE_URL");
@@ -63,7 +70,7 @@ if (env.WECHAT_LOGIN_MODE === "real") {
   addCheck(
     env.WECHAT_MERCHANT_APP_ID === env.MP_WEIXIN_MERCHANT_APP_ID,
     "error",
-    "商家端微信登录 AppID 与小程序 AppID 一致"
+    "商户端微信登录 AppID 与小程序 AppID 一致"
   );
 }
 

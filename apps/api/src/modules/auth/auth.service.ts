@@ -65,6 +65,10 @@ function passwordMatches(password: string, salt: string, passwordHash: string) {
   return incoming.length === stored.length && timingSafeEqual(incoming, stored);
 }
 
+function cleanEnvValue(value?: string) {
+  return (value ?? "").trim().replace(/^['"]|['"]$/g, "");
+}
+
 @Injectable()
 export class AuthService {
   private readonly wechatAccessTokenCache: Partial<
@@ -100,7 +104,7 @@ export class AuthService {
 
     const phone =
       (await this.resolveWechatPhone("user", dto.phoneCode)) || dto.phone?.trim() || undefined;
-    const nickname = dto.nickname?.trim() || "金闪送用户";
+    const nickname = dto.nickname?.trim() || "金泽快送用户";
     const user = await this.upsertWechatUser(wechat.openId, {
       phone,
       nickname
@@ -166,7 +170,7 @@ export class AuthService {
         canLogin: false,
         loginMode: wechat.mode,
         openId: wechat.openId,
-        message: "请授权微信手机号，或填写已提交入驻申请的手机号",
+        message: "请授权微信手机号后继续",
         application: null
       };
     }
@@ -177,6 +181,26 @@ export class AuthService {
       ...result,
       loginMode: wechat.mode,
       openId: wechat.openId
+    };
+  }
+
+  async merchantWechatPhone(dto: { phoneCode?: string; phone?: string }) {
+    const config = this.getWechatConfig("merchant");
+    if (config.mode === "mock") {
+      return {
+        phone: dto.phone?.trim() || "13800000001",
+        loginMode: config.mode
+      };
+    }
+
+    const phone = await this.resolveWechatPhone("merchant", dto.phoneCode);
+    if (!phone) {
+      throw new BadRequestException("请授权微信手机号后继续");
+    }
+
+    return {
+      phone,
+      loginMode: config.mode
     };
   }
 
@@ -410,28 +434,12 @@ export class AuthService {
   }
 
   private async mockMerchantLoginWithoutPhone(openId: string) {
-    const recentMobileAccount = await this.prisma.merchantAccount.findFirst({
-      where: {
-        status: AccountStatus.ACTIVE,
-        phone: { startsWith: "1" },
-        store: { status: StoreStatus.OPEN }
-      },
-      include: { store: true },
-      orderBy: { updatedAt: "desc" }
-    });
-
-    if (recentMobileAccount) {
-      return this.merchantLogin({
-        phone: recentMobileAccount.phone,
-        openId
-      });
-    }
-
-    const demoStore = await this.resolveStore(DEFAULT_STORE_CODE);
-    return this.merchantLogin({
-      phone: demoStore.phone ?? demoStore.code,
-      openId
-    });
+    void openId;
+    return {
+      canLogin: false,
+      message: "当前微信演示登录未关联门店；真实上线后会用微信授权手机号自动匹配入驻申请",
+      application: null
+    };
   }
 
   async adminLogin(dto: { account?: string; password?: string }) {
@@ -517,7 +525,7 @@ export class AuthService {
 
   async resolveMerchantStoreCode(merchantToken?: string, requestedStoreCode?: string) {
     if (!merchantToken?.trim()) {
-      throw new UnauthorizedException("请先登录商家端");
+      throw new UnauthorizedException("请先登录商户端");
     }
 
     const requestedCode = requestedStoreCode?.trim();
@@ -558,7 +566,7 @@ export class AuthService {
 
     const accountStore = stores.find((item) => item.id === account.storeId) ?? stores[0];
     if (!accountStore) {
-      throw new UnauthorizedException("商家账号暂未绑定可用门店");
+      throw new UnauthorizedException("商户账号暂未绑定可用门店");
     }
 
     return accountStore.code;
@@ -703,11 +711,15 @@ export class AuthService {
   }
 
   private getWechatConfig(kind: WechatAppKind) {
-    const mode = (process.env.WECHAT_LOGIN_MODE || "mock").toLowerCase();
+    const mode = (cleanEnvValue(process.env.WECHAT_LOGIN_MODE) || "mock").toLowerCase();
     const appId =
-      kind === "user" ? process.env.WECHAT_USER_APP_ID : process.env.WECHAT_MERCHANT_APP_ID;
+      kind === "user"
+        ? cleanEnvValue(process.env.WECHAT_USER_APP_ID)
+        : cleanEnvValue(process.env.WECHAT_MERCHANT_APP_ID);
     const appSecret =
-      kind === "user" ? process.env.WECHAT_USER_APP_SECRET : process.env.WECHAT_MERCHANT_APP_SECRET;
+      kind === "user"
+        ? cleanEnvValue(process.env.WECHAT_USER_APP_SECRET)
+        : cleanEnvValue(process.env.WECHAT_MERCHANT_APP_SECRET);
 
     if (mode !== "real") {
       return {
@@ -758,7 +770,7 @@ export class AuthService {
 
   private async resolveMerchantAccountSession(token?: string) {
     if (!token?.trim()) {
-      throw new UnauthorizedException("请先登录商家端");
+      throw new UnauthorizedException("请先登录商户端");
     }
 
     const payload = verifySessionToken(token.trim(), "merchant");
@@ -768,7 +780,7 @@ export class AuthService {
     });
 
     if (!account || account.status !== AccountStatus.ACTIVE) {
-      throw new UnauthorizedException("商家账号或门店状态异常，请重新登录");
+      throw new UnauthorizedException("商户账号或门店状态异常，请重新登录");
     }
 
     return { account, payload };
@@ -873,7 +885,7 @@ export class AuthService {
     });
 
     if (!application?.store) {
-      throw new UnauthorizedException("商家登录状态已失效，请重新登录");
+      throw new UnauthorizedException("商户登录状态已失效，请重新登录");
     }
 
     return application.store;
@@ -934,7 +946,7 @@ export class AuthService {
     return this.prisma.adminUser.create({
       data: {
         account,
-        name: "金闪送管理员",
+        name: "金泽快送管理员",
         role: AdminRole.SUPER_ADMIN,
         status: AccountStatus.ACTIVE,
         ...createPasswordHash(password)
@@ -959,7 +971,7 @@ export class AuthService {
     });
 
     if (!fallback) {
-      throw new BadRequestException("暂无可用商家门店");
+      throw new BadRequestException("暂无可用商户门店");
     }
 
     return fallback;
@@ -989,7 +1001,7 @@ export class AuthService {
   }) {
     return {
       id: user.id,
-      nickname: user.nickname ?? "金闪送用户",
+      nickname: user.nickname ?? "金泽快送用户",
       phone: user.phone ?? "",
       isNewUser: user.isNewUser,
       firstOrderStatus: user.firstOrderStatus

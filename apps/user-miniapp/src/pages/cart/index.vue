@@ -46,7 +46,7 @@
             mode="aspectFill"
           />
           <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">商品图片</text>
-          <text v-else-if="!displayImageUrl(item.imageUrl)">金闪送</text>
+          <text v-else-if="!displayImageUrl(item.imageUrl)">金泽快送</text>
         </view>
         <view class="item-main">
           <view class="item-head tapable" hover-class="tap-active" @tap="openProduct(item)">

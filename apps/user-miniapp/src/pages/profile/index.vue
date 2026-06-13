@@ -64,7 +64,7 @@ const profileStats = ref({
   referralCount: 0
 });
 
-const profileName = computed(() => profile.value?.nickname || "金闪送用户");
+const profileName = computed(() => profile.value?.nickname || "金泽快送用户");
 const profilePhone = computed(() => {
   const phone = profile.value?.phone || "";
   if (!phone) {

@@ -7,7 +7,7 @@
             <image class="brand-logo-image" src="/static/brand/logo-icon.png" mode="aspectFit" />
           </view>
           <view>
-            <text class="app-name">金闪送商家端</text>
+            <text class="app-name">金泽快送商户端</text>
             <text class="store-name">{{ storeName }}</text>
           </view>
         </view>
@@ -18,7 +18,7 @@
 
     <view v-if="!hasMerchantAccess" class="audit-card">
       <view>
-        <text class="section-title">商家入驻审核后使用</text>
+        <text class="section-title">商户入驻审核后使用</text>
         <text class="muted">提交入驻申请并由后台审核通过后，才能接单和上架商品。</text>
       </view>
       <button class="primary-button" @tap="goLogin">去申请入驻</button>
@@ -135,7 +135,7 @@
       <text class="muted">{{ order.customer }} {{ order.phone }}</text>
       <text class="address">{{ order.address }}</text>
       <view class="product-line">
-        <view class="product-image">金闪送</view>
+        <view class="product-image">金泽快送</view>
         <view class="product-info">
           <text class="product-name">{{ order.productName }}</text>
           <view class="product-meta">
@@ -328,7 +328,7 @@ async function loadMerchantHome() {
   } catch {
     orders.value = [];
     applications.value = [];
-    uni.showToast({ title: "商家数据加载失败", icon: "none" });
+    uni.showToast({ title: "商户数据加载失败", icon: "none" });
   }
 }
 

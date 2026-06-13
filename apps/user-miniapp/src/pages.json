@@ -9,7 +9,7 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationBarTitleText": "金闪送",
+        "navigationBarTitleText": "金泽快送",
         "enablePullDownRefresh": true
       }
     },
@@ -95,7 +95,7 @@
     {
       "path": "pages/about/index",
       "style": {
-        "navigationBarTitleText": "关于金闪送"
+        "navigationBarTitleText": "关于金泽快送"
       }
     },
     {
@@ -144,7 +144,7 @@
   },
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "金闪送",
+    "navigationBarTitleText": "金泽快送",
     "navigationBarBackgroundColor": "#FFFFFF",
     "backgroundColor": "#F7F8FA",
     "backgroundTextStyle": "dark"

@@ -1,17 +1,17 @@
 <template>
   <view class="page merchant-login-page">
     <view class="merchant-hero">
-      <text class="app-name">微信小程序商家登录</text>
+      <text class="app-name">微信小程序商户登录</text>
       <view class="brand-lockup">
         <view class="brand-mark">
           <image class="brand-mark-image" src="/static/brand/logo-icon.png" mode="aspectFit" />
         </view>
         <view class="brand-copy">
-          <text class="brand-title">金闪送商家端</text>
+          <text class="brand-title">金泽快送商户端</text>
           <text class="brand-desc">福州本地数码配件即时闪购</text>
         </view>
       </view>
-      <text class="subtitle">微信授权登录后进入门店工作台，未入驻商家先提交资料等待后台审核。</text>
+      <text class="subtitle">微信授权登录后进入门店工作台，未入驻商户先提交资料等待后台审核。</text>
     </view>
 
     <view class="mode-tabs">
@@ -48,6 +48,25 @@
         </view>
         <view class="field">
           <text class="field-label">手机号<text class="required-star">*</text></text>
+          <!-- #ifdef MP-WEIXIN -->
+          <view class="phone-auth-field" :class="{ filled: Boolean(applyForm.applicantPhone) }">
+            <view class="phone-auth-copy">
+              <text class="phone-auth-title">
+                {{ applyForm.applicantPhone || "授权微信手机号" }}
+              </text>
+              <text class="phone-auth-desc">用于入驻审核和后续商户登录匹配</text>
+            </view>
+            <button
+              class="phone-auth-button"
+              open-type="getPhoneNumber"
+              :disabled="loading"
+              @getphonenumber="handleApplyPhone"
+            >
+              {{ applyForm.applicantPhone ? "重新授权" : "授权" }}
+            </button>
+          </view>
+          <!-- #endif -->
+          <!-- #ifndef MP-WEIXIN -->
           <input
             v-model="applyForm.applicantPhone"
             adjust-position
@@ -58,6 +77,7 @@
             placeholder="13800000001"
             type="number"
           />
+          <!-- #endif -->
         </view>
       </view>
 
@@ -70,7 +90,7 @@
           confirm-type="next"
           cursor-spacing="20"
           maxlength="28"
-          placeholder="例如 金闪送台江数码店"
+          placeholder="例如 金泽快送台江数码店"
         />
       </view>
 
@@ -190,7 +210,7 @@
       </button>
       <view class="agreement apply-agreement">
         <text>提交即代表同意</text>
-        <text class="agreement-link" @tap="openLegal('onboarding')">《商家入驻协议》</text>
+        <text class="agreement-link" @tap="openLegal('onboarding')">《商户入驻协议》</text>
       </view>
     </view>
 
@@ -200,8 +220,18 @@
         <text class="muted">查询入驻进度</text>
       </view>
 
+      <!-- #ifdef MP-WEIXIN -->
+      <view class="wechat-phone-card">
+        <text class="wechat-phone-title">微信手机号授权</text>
+        <text class="wechat-phone-desc">
+          系统会用微信授权手机号自动匹配入驻申请和门店，无需手动填写手机号。
+        </text>
+      </view>
+      <!-- #endif -->
+
+      <!-- #ifndef MP-WEIXIN -->
       <view class="field">
-        <text class="field-label">申请手机号<text class="required-star">*</text></text>
+        <text class="field-label">测试手机号<text class="required-star">*</text></text>
         <input
           v-model="loginPhone"
           adjust-position
@@ -209,10 +239,11 @@
           confirm-type="done"
           cursor-spacing="20"
           maxlength="11"
-          placeholder="填写入驻申请手机号"
+          placeholder="本地测试填写入驻申请手机号"
           type="number"
         />
       </view>
+      <!-- #endif -->
 
       <view v-if="application" class="status-card" :class="application.status.toLowerCase()">
         <view>
@@ -228,36 +259,24 @@
 
       <!-- #ifdef MP-WEIXIN -->
       <button
-        v-if="application?.status !== 'APPROVED'"
         class="primary-button"
         open-type="getPhoneNumber"
         :disabled="loading"
         @getphonenumber="handleLogin"
       >
-        {{ loading ? "授权中..." : "微信手机号授权登录" }}
+        {{ loginButtonText }}
       </button>
       <!-- #endif -->
       <!-- #ifndef MP-WEIXIN -->
-      <button
-        v-if="application?.status !== 'APPROVED'"
-        class="primary-button"
-        :disabled="loading"
-        @tap="handleLogin"
-      >
-        {{ loading ? "检查中..." : "微信授权进入商家端" }}
+      <button class="primary-button" :disabled="loading" @tap="handleLogin">
+        {{ loginButtonText }}
       </button>
       <!-- #endif -->
-      <button
-        v-if="application?.status === 'APPROVED'"
-        class="primary-button"
-        :disabled="loading"
-        @tap="enterApprovedStore"
-      >
-        {{ loading ? "进入中..." : "进入商家端" }}
-      </button>
-      <button class="ghost-button" :disabled="loading" @tap="checkStatus({ autoEnter: true })">
+      <!-- #ifndef MP-WEIXIN -->
+      <button class="ghost-button" :disabled="loading" @tap="checkStatus()">
         查看审核状态
       </button>
+      <!-- #endif -->
       <button v-if="loggedIn" class="ghost-button" :disabled="loading" @tap="goHome">
         返回当前门店
       </button>
@@ -340,19 +359,30 @@ onLoad((query) => {
     mode.value = "apply";
   }
 
+  // #ifndef MP-WEIXIN
   const cachedPhone = uni.getStorageSync(LAST_LOGIN_PHONE_KEY);
   if (typeof cachedPhone === "string" && cachedPhone.trim()) {
     loginPhone.value = cachedPhone.trim();
     mode.value = "login";
     setTimeout(() => {
-      void checkStatus({ autoEnter: true, silent: true });
+      void checkStatus({ silent: true });
     }, 0);
   }
+  // #endif
 });
 
 const selectedDistrictIndex = computed(() =>
   Math.max(0, fuzhouDistricts.indexOf(applyForm.district))
 );
+const loginButtonText = computed(() => {
+  if (loading.value) {
+    return "授权中...";
+  }
+  if (application.value?.status === "APPROVED") {
+    return "微信授权进入商户端";
+  }
+  return "微信授权查询/登录";
+});
 
 function getWechatLoginCode() {
   return new Promise<string>((resolve) => {
@@ -371,6 +401,21 @@ function getWechatLoginCode() {
     resolve("");
     // #endif
   });
+}
+
+function readPhoneCode(event: PhoneNumberEvent | undefined) {
+  const phoneCode = event?.detail?.code;
+  if (phoneCode) {
+    return phoneCode;
+  }
+
+  const errMsg = event?.detail?.errMsg ?? "";
+  const message =
+    errMsg.includes("deny") || errMsg.includes("fail")
+      ? "需要授权微信手机号后继续"
+      : "未获取到微信手机号，请重试";
+  uni.showToast({ title: message, icon: "none" });
+  return "";
 }
 
 function openLegal(type: "merchant" | "privacy" | "onboarding") {
@@ -662,6 +707,12 @@ function chooseApplicationImage(field: ApplicationImageField) {
 
 async function submitApplication() {
   if (loading.value) return;
+  // #ifdef MP-WEIXIN
+  if (!applyForm.applicantPhone.trim()) {
+    uni.showToast({ title: "请先授权微信手机号", icon: "none" });
+    return;
+  }
+  // #endif
   if (!validateApplyForm()) {
     uni.showToast({ title: "请完整填写必填资料", icon: "none" });
     return;
@@ -692,6 +743,29 @@ async function submitApplication() {
   }
 }
 
+async function handleApplyPhone(event?: PhoneNumberEvent) {
+  if (loading.value) return;
+  const phoneCode = readPhoneCode(event);
+  if (!phoneCode) return;
+
+  loading.value = true;
+  try {
+    const result = await api.wechatPhone({ phoneCode });
+    applyForm.applicantPhone = result.phone;
+    loginPhone.value = result.phone;
+    saveLastLoginPhone(result.phone);
+    uni.showToast({ title: "手机号已授权", icon: "success" });
+  } catch (error) {
+    const message =
+      error instanceof ApiRequestError || error instanceof Error
+        ? error.message
+        : "手机号授权失败";
+    uni.showToast({ title: message, icon: "none" });
+  } finally {
+    loading.value = false;
+  }
+}
+
 function saveLastLoginPhone(phone: string) {
   const normalizedPhone = phone.trim();
   if (normalizedPhone) {
@@ -706,7 +780,7 @@ function rememberApplicationPhone(nextApplication?: StoreApplication | null) {
   saveLastLoginPhone(phone);
 }
 
-async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = {}) {
+async function checkStatus(options: { silent?: boolean } = {}) {
   if (!loginPhone.value.trim()) {
     if (!options.silent) {
       uni.showToast({ title: "请输入申请手机号", icon: "none" });
@@ -726,10 +800,6 @@ async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = 
       }
       return;
     }
-    if (application.value.status === "APPROVED" && options.autoEnter) {
-      await enterApprovedStore({ force: true, silent: options.silent });
-      return;
-    }
     if (!options.silent) {
       uni.showToast({ title: application.value.statusText, icon: "none" });
     }
@@ -742,58 +812,16 @@ async function checkStatus(options: { autoEnter?: boolean; silent?: boolean } = 
   }
 }
 
-async function enterApprovedStore(options: { force?: boolean; silent?: boolean } = {}) {
-  if (loading.value && !options.force && !options.silent) return;
-  const phone = loginPhone.value.trim() || application.value?.applicantPhone?.trim() || "";
-  if (!phone) {
-    if (!options.silent) {
-      uni.showToast({ title: "请输入申请手机号", icon: "none" });
-    }
-    return;
-  }
-
-  loading.value = true;
-  try {
-    saveLastLoginPhone(phone);
-    const result = await api.login(phone);
-    application.value = result.application ?? application.value;
-    if (!result.canLogin || !result.token || !result.store) {
-      if (!options.silent) {
-        uni.showToast({ title: result.message || "暂不能进入商家端", icon: "none" });
-      }
-      return;
-    }
-    saveMerchantSession({ token: result.token, store: result.store, stores: result.stores });
-    loggedIn.value = true;
-    if (!options.silent) {
-      uni.showToast({ title: "已进入商家端", icon: "success" });
-    }
-    setTimeout(
-      () => {
-        goAfterMerchantLogin(redirectUrl.value);
-      },
-      options.silent ? 0 : 250
-    );
-  } catch (error) {
-    const message =
-      error instanceof ApiRequestError || error instanceof Error
-        ? error.message
-        : "进入失败，请检查后端服务";
-    if (!options.silent) {
-      uni.showToast({ title: message, icon: "none" });
-    }
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function handleLogin(event?: PhoneNumberEvent) {
   if (loading.value) return;
 
   loading.value = true;
   try {
     const code = await getWechatLoginCode();
-    const phoneCode = event?.detail?.code;
+    const phoneCode = event?.detail ? readPhoneCode(event) : undefined;
+    if (event?.detail && !phoneCode) {
+      return;
+    }
     const phone = loginPhone.value.trim() || undefined;
     if (phone) {
       saveLastLoginPhone(phone);
@@ -807,7 +835,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
     rememberApplicationPhone(application.value);
     if (!result.canLogin || !result.token || !result.store) {
       uni.showToast({
-        title: result.message || (phoneCode ? "暂不能登录" : "请授权微信手机号或填写入驻手机号"),
+        title: result.message || (phoneCode ? "暂不能登录" : "请授权微信手机号"),
         icon: "none"
       });
       return;
@@ -1066,6 +1094,27 @@ async function handleLogin(event?: PhoneNumberEvent) {
   gap: 10px;
 }
 
+.wechat-phone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 12px;
+  background: #f7f8fa;
+}
+
+.wechat-phone-title {
+  color: #111111;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.wechat-phone-desc {
+  color: #666666;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .required-star {
   margin-left: 2px;
   color: #ff4d4f;
@@ -1096,6 +1145,66 @@ async function handleLogin(event?: PhoneNumberEvent) {
 .field-input {
   height: 42px;
   padding: 0 12px;
+}
+
+.phone-auth-field {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 8px 8px 8px 12px;
+  background: #f7f8fa;
+}
+
+.phone-auth-field.filled {
+  background: #fffaf4;
+}
+
+.phone-auth-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-auth-title {
+  overflow: hidden;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-auth-desc {
+  color: #666666;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.phone-auth-button {
+  display: flex;
+  width: auto;
+  min-width: 72px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: linear-gradient(135deg, #ff7a00, #ffb020);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 34px;
+}
+
+.phone-auth-button::after {
+  border: 0;
 }
 
 .select-field {

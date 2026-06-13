@@ -99,9 +99,9 @@ async function uploadApplicationImages() {
   ]);
 
   if (!license?.url || !storefront?.url) {
-    fail("商家入驻图片上传没有返回 URL");
+    fail("商户入驻图片上传没有返回 URL");
   }
-  step("商家入驻图片上传成功");
+  step("商户入驻图片上传成功");
   return { licenseUrl: license.url, storefrontUrl: storefront.url };
 }
 
@@ -110,7 +110,7 @@ async function submitAndApproveApplication() {
   const application = await request("/auth/merchant/apply", {
     method: "POST",
     body: JSON.stringify({
-      applicantName: `验收商家${runId}`,
+      applicantName: `验收商户${runId}`,
       applicantPhone: merchantPhone,
       storeName: `验收数码门店 ${runId}`,
       city: "福州市",
@@ -127,7 +127,7 @@ async function submitAndApproveApplication() {
     fail(`新入驻申请应为待审核，实际为 ${application.status}`);
   }
   context.applicationId = application.id;
-  step("商家提交入驻申请成功", application.id);
+  step("商户提交入驻申请成功", application.id);
 
   const applications = await request("/admin/store-applications", { headers: adminHeaders() });
   if (
@@ -160,11 +160,11 @@ async function loginApprovedMerchant() {
   });
 
   if (!result?.canLogin || !result.token || result.store?.code !== context.storeCode) {
-    fail("审核通过后的商家无法登录对应门店");
+    fail("审核通过后的商户无法登录对应门店");
   }
 
   context.merchantToken = result.token;
-  step("审核通过后商家可登录", result.store.name);
+  step("审核通过后商户可登录", result.store.name);
 }
 
 async function submitAndApproveProduct() {
@@ -196,9 +196,9 @@ async function submitAndApproveProduct() {
   ]);
 
   if (!cover?.url || !detail?.url) {
-    fail("商家商品图片上传没有返回 URL");
+    fail("商户商品图片上传没有返回 URL");
   }
-  step("商家商品主图和详情图上传成功");
+  step("商户商品主图和详情图上传成功");
 
   const product = await request("/merchant/products", {
     method: "POST",
@@ -207,7 +207,7 @@ async function submitAndApproveProduct() {
       categoryId: category.id,
       name: context.productName,
       skuName: "1m 橙白款",
-      description: "商家入驻验收链路商品，后台审核通过后用户端可购买",
+      description: "商户入驻验收链路商品，后台审核通过后用户端可购买",
       salePrice: 19.9,
       settlePrice: 12.5,
       stock: 8,
@@ -222,7 +222,7 @@ async function submitAndApproveProduct() {
   context.productId = product.productId;
   context.skuId = product.skuId;
   context.storeSkuId = product.storeSkuId;
-  step("商家提交商品成功，进入待审核", context.productName);
+  step("商户提交商品成功，进入待审核", context.productName);
 
   const userProductsBefore = await request("/products");
   if (userProductsBefore.some((item) => item.id === context.productId)) {
@@ -326,9 +326,9 @@ async function assertMerchantReceivesAndCompleteOrder() {
   });
   const pendingOrder = pendingOrders.find((item) => item.id === context.orderId);
   if (!pendingOrder) {
-    fail("新入驻商家待接单列表没有收到用户订单");
+    fail("新入驻商户待接单列表没有收到用户订单");
   }
-  step("商家端待接单收到用户订单", pendingOrder.orderNo);
+  step("商户端待接单收到用户订单", pendingOrder.orderNo);
 
   const actions = [
     ["accept", "STORE_ACCEPTED"],
@@ -343,10 +343,10 @@ async function assertMerchantReceivesAndCompleteOrder() {
       headers: merchantHeaders()
     });
     if (updated.statusCode !== expectedStatus) {
-      fail(`商家 ${action} 后状态应为 ${expectedStatus}，实际为 ${updated.statusCode}`);
+      fail(`商户 ${action} 后状态应为 ${expectedStatus}，实际为 ${updated.statusCode}`);
     }
   }
-  step("商家端接单、备货、取货、完成订单通过");
+  step("商户端接单、备货、取货、完成订单通过");
 }
 
 async function assertAdminAndUserRecords() {
@@ -381,7 +381,7 @@ async function assertAdminAndUserRecords() {
 }
 
 async function main() {
-  console.log(`金闪送入驻到下单验收链路：${baseUrl}`);
+  console.log(`金泽快送入驻到下单验收链路：${baseUrl}`);
   await loginAdmin();
   await submitAndApproveApplication();
   await loginApprovedMerchant();
@@ -391,7 +391,7 @@ async function main() {
   await assertAdminAndUserRecords();
 
   console.log("验收链路通过，已保留本次测试数据用于三端页面查看：");
-  console.log(`- 商家手机号：${merchantPhone}`);
+  console.log(`- 商户手机号：${merchantPhone}`);
   console.log(`- 门店编码：${context.storeCode}`);
   console.log(`- 商品名称：${context.productName}`);
   console.log(`- 订单 ID：${context.orderId}`);

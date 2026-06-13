@@ -10,7 +10,7 @@
       <view class="withdraw-head">
         <view>
           <text class="section-title">提现处理</text>
-          <text class="muted">平台审核通过后人工打款到商家账户</text>
+          <text class="muted">平台审核通过后人工打款到商户账户</text>
         </view>
         <text class="status-chip">{{ withdrawal.latest?.statusText || "可申请" }}</text>
       </view>

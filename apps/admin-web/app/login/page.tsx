@@ -53,14 +53,14 @@ export default function LoginPage() {
       <div className="flex min-h-[520px] flex-col justify-between bg-gradient-to-br from-[#FF7A00] to-[#FFB020] p-10 text-white">
         <div>
           <div className="mb-6 flex size-16 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-            <img className="size-14 object-contain" src="/brand/logo-icon.png" alt="金闪送" />
+            <img className="size-14 object-contain" src="/brand/logo-icon.png" alt="金泽快送" />
           </div>
           <img
             className="mb-4 h-20 w-52 rounded-2xl bg-white/90 object-contain p-1"
             src="/brand/logo-horizontal.png"
-            alt="金闪送"
+            alt="金泽快送"
           />
-          <h1 className="text-4xl font-semibold tracking-normal">金闪送</h1>
+          <h1 className="text-4xl font-semibold tracking-normal">金泽快送</h1>
           <p className="mt-3 max-w-sm text-white/85">福州同城数码配件即时闪购平台后台管理系统</p>
         </div>
         <div className="grid grid-cols-3 gap-3 text-sm">

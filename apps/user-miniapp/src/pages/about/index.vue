@@ -3,7 +3,7 @@
     <view class="hero">
       <image class="logo" src="/static/brand/logo-icon.png" mode="aspectFit" />
       <view>
-        <text class="title">金闪送</text>
+        <text class="title">金泽快送</text>
         <text class="desc">福州本地数码配件即时闪购平台</text>
       </view>
     </view>
@@ -11,7 +11,7 @@
     <view class="card section">
       <text class="section-title">平台说明</text>
       <text class="paragraph">
-        金闪送面向福州本地用户提供手机壳、钢化膜、充电器、充电线等数码配件即时购买服务。
+        金泽快送面向福州本地用户提供手机壳、钢化膜、充电器、充电线等数码配件即时购买服务。
         平台会根据用户地址、附近门店库存和门店接单状态匹配可履约门店。
       </text>
     </view>

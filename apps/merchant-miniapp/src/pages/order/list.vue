@@ -1,43 +1,45 @@
 <template>
   <view class="page order-page">
-    <view class="tabs">
-      <button class="tab" :class="{ active: activeTab === 'all' }" @tap="selectTab('all')">
-        <text>全部</text>
-        <text class="tab-count">{{ countByTab("all") }}</text>
-      </button>
-      <button class="tab" :class="{ active: activeTab === 'pending' }" @tap="selectTab('pending')">
-        <text>待接单</text>
-        <text class="tab-count">{{ countByTab("pending") }}</text>
-      </button>
-      <button
-        class="tab"
-        :class="{ active: activeTab === 'accepted' }"
-        @tap="selectTab('accepted')"
-      >
-        <text>已接单</text>
-        <text class="tab-count">{{ countByTab("accepted") }}</text>
-      </button>
-      <button class="tab" :class="{ active: activeTab === 'pickup' }" @tap="selectTab('pickup')">
-        <text>待取货</text>
-        <text class="tab-count">{{ countByTab("pickup") }}</text>
-      </button>
-      <button
-        class="tab"
-        :class="{ active: activeTab === 'completed' }"
-        @tap="selectTab('completed')"
-      >
-        <text>已完成</text>
-        <text class="tab-count">{{ countByTab("completed") }}</text>
-      </button>
-      <button
-        class="tab"
-        :class="{ active: activeTab === 'cancelled' }"
-        @tap="selectTab('cancelled')"
-      >
-        <text>已取消</text>
-        <text class="tab-count">{{ countByTab("cancelled") }}</text>
-      </button>
-    </view>
+    <scroll-view class="tabs-scroll" scroll-x="true" enable-flex="true" show-scrollbar="false">
+      <view class="tabs">
+        <button class="tab" :class="{ active: activeTab === 'all' }" @tap="selectTab('all')">
+          <text>全部</text>
+          <text class="tab-count">{{ countByTab("all") }}</text>
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'pending' }" @tap="selectTab('pending')">
+          <text>待接单</text>
+          <text class="tab-count">{{ countByTab("pending") }}</text>
+        </button>
+        <button
+          class="tab"
+          :class="{ active: activeTab === 'accepted' }"
+          @tap="selectTab('accepted')"
+        >
+          <text>已接单</text>
+          <text class="tab-count">{{ countByTab("accepted") }}</text>
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'pickup' }" @tap="selectTab('pickup')">
+          <text>待取货</text>
+          <text class="tab-count">{{ countByTab("pickup") }}</text>
+        </button>
+        <button
+          class="tab"
+          :class="{ active: activeTab === 'completed' }"
+          @tap="selectTab('completed')"
+        >
+          <text>已完成</text>
+          <text class="tab-count">{{ countByTab("completed") }}</text>
+        </button>
+        <button
+          class="tab"
+          :class="{ active: activeTab === 'cancelled' }"
+          @tap="selectTab('cancelled')"
+        >
+          <text>已取消</text>
+          <text class="tab-count">{{ countByTab("cancelled") }}</text>
+        </button>
+      </view>
+    </scroll-view>
 
     <view v-if="filteredOrders.length === 0" class="empty-card">
       <text class="section-title">暂无订单</text>
@@ -50,7 +52,7 @@
         <text class="tag">{{ order.status }}</text>
       </view>
       <view class="body">
-        <view class="product-image">金闪送</view>
+        <view class="product-image">金泽快送</view>
         <view class="info">
           <text class="product-name">{{ order.productName }}</text>
           <text class="muted">{{ order.customer }} {{ order.phone }}</text>
@@ -187,11 +189,15 @@ onPullDownRefresh(() => {
 .tabs {
   display: flex;
   gap: 7px;
-  overflow-x: auto;
   border-radius: 18px;
   padding: 7px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
+}
+
+.tabs-scroll {
+  overflow: hidden;
+  border-radius: 18px;
 }
 
 .tab {

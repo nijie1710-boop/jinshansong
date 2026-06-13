@@ -36,7 +36,7 @@
     <view class="card product-card">
       <view class="product-image">
         <view class="mini-device"></view>
-        <text>金闪送</text>
+        <text>金泽快送</text>
       </view>
       <view class="product-info">
         <text class="product-name">{{ order.productName }}</text>
@@ -118,11 +118,11 @@ const activeStepIndex = computed(() => {
 const statusHint = computed(() => {
   const status = order.value.statusCode;
   if (status === "WAITING_STORE_ACCEPT" || status === "TRANSFERRED")
-    return "系统已匹配门店，等待商家接单";
-  if (status === "STORE_ACCEPTED") return "商家已接单，正在备货";
+    return "系统已匹配门店，等待商户接单";
+  if (status === "STORE_ACCEPTED") return "商户已接单，正在备货";
   if (status === "READY_FOR_PICKUP") return "备货已完成，等待骑手取货";
   if (status === "RIDER_PICKED_UP" || status === "DELIVERING") return "骑手正在配送，请耐心等待";
-  if (status === "COMPLETED") return "订单已送达，感谢使用金闪送";
+  if (status === "COMPLETED") return "订单已送达，感谢使用金泽快送";
   if (status === "REFUNDED") return "订单已退款";
   return "订单处理中";
 });

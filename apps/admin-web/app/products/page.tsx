@@ -67,7 +67,7 @@ export default async function ProductsPage({
   return (
     <PageShell
       title="商品管理"
-      description="商家提交商品后进入待审核，审核通过且上架后才会展示给用户端。"
+      description="商户提交商品后进入待审核，审核通过且上架后才会展示给用户端。"
       actions={
         <div className="flex flex-wrap gap-2 text-sm">
           <StatusPill tone={pendingCount > 0 ? "orange" : "gray"}>待审核 {pendingCount}</StatusPill>
@@ -82,19 +82,19 @@ export default async function ProductsPage({
             icon={<ShieldCheck className="size-5" />}
             label="待审核商品"
             value={pendingCount}
-            hint="商家新提交后进入队列"
+            hint="商户新提交后进入队列"
             tone="orange"
           />
           <ProductSummary
             icon={<BadgeCheck className="size-5" />}
             label="用户端可见"
             value={visibleCount}
-            hint="审核通过且商家已上架"
+            hint="审核通过且商户已上架"
             tone="green"
           />
           <ProductSummary
             icon={<PackageCheck className="size-5" />}
-            label="商家上架"
+            label="商户上架"
             value={onSaleCount}
             hint="不代表已通过平台审核"
           />
@@ -108,8 +108,8 @@ export default async function ProductsPage({
         <div className="mt-4 grid gap-3 text-sm text-[#666666] md:grid-cols-3">
           <ReviewStep
             index="1"
-            title="商家提交"
-            description="商家端上传主图、详情图、价格、库存和说明。"
+            title="商户提交"
+            description="商户端上传主图、详情图、价格、库存和说明。"
             tone="orange"
           />
           <ReviewStep
@@ -120,7 +120,7 @@ export default async function ProductsPage({
           <ReviewStep
             index="3"
             title="用户购买"
-            description="用户下单后，订单会进入对应商家端待接单。"
+            description="用户下单后，订单会进入对应商户端待接单。"
             tone="green"
           />
         </div>
@@ -129,9 +129,9 @@ export default async function ProductsPage({
       <Panel title="三端互通检查">
         <div className="grid gap-3 md:grid-cols-3">
           <DataFlowCard
-            title="商家端提交"
+            title="商户端提交"
             value={`${products.length} 个 SKU`}
-            description="商家上传主图、SKU 图、详情图和价格后写入同一套商品库。"
+            description="商户上传主图、SKU 图、详情图和价格后写入同一套商品库。"
             tone="orange"
           />
           <DataFlowCard
@@ -221,14 +221,14 @@ export default async function ProductsPage({
         </div>
         <div className="mt-3 rounded-2xl bg-[#F7F8FA] px-4 py-3 text-sm text-[#666666]">
           当前显示 {filteredProducts.length} / {products.length} 个 SKU
-          {keyword ? `，关键词：${keyword}` : ""}。筛选只影响后台视图，不会改变用户端或商家端数据。
+          {keyword ? `，关键词：${keyword}` : ""}。筛选只影响后台视图，不会改变用户端或商户端数据。
         </div>
       </Panel>
 
       {products.length === 0 ? (
         <Panel>
           <div className="text-sm text-[#666666]">
-            暂无商品数据。商家提交商品后会进入这里等待审核。
+            暂无商品数据。商户提交商品后会进入这里等待审核。
           </div>
         </Panel>
       ) : (
@@ -240,7 +240,7 @@ export default async function ProductsPage({
                   <CheckCircle2 className="size-6" />
                 </div>
                 <div className="mt-3 font-semibold">暂无待审核商品</div>
-                <div className="mt-1 text-sm text-[#666666]">商家新提交商品后会优先出现在这里。</div>
+                <div className="mt-1 text-sm text-[#666666]">商户新提交商品后会优先出现在这里。</div>
               </div>
             ) : (
               <div className="space-y-3">

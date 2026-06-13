@@ -1,7 +1,7 @@
 {
-  "name": "金闪送商家端",
+  "name": "金泽快送商户端",
   "appid": "__UNI__JINSHANSONG_MERCHANT",
-  "description": "福州同城数码配件即时闪购平台商家端 MVP",
+  "description": "福州同城数码配件即时闪购平台商户端 MVP",
   "versionName": "0.1.0",
   "versionCode": "100",
   "mp-weixin": {
@@ -14,7 +14,7 @@
     },
     "permission": {
       "scope.userLocation": {
-        "desc": "用于商家入驻时选择门店地址和定位门店位置"
+        "desc": "用于商户入驻时选择门店地址和定位门店位置"
       }
     },
     "requiredPrivateInfos": [

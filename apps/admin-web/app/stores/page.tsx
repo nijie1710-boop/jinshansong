@@ -28,7 +28,7 @@ export default async function StoresPage() {
   return (
     <PageShell
       title="门店管理"
-      description="商家先提交入驻申请，后台审核通过后自动生成门店账号，商家才能上架商品。"
+      description="商户先提交入驻申请，后台审核通过后自动生成门店账号，商户才能上架商品。"
       actions={
         <div className="flex flex-wrap gap-2 text-sm">
           <StatusPill tone={pendingCount > 0 ? "orange" : "gray"}>待审核 {pendingCount}</StatusPill>
@@ -43,7 +43,7 @@ export default async function StoresPage() {
             icon={<UserCheck className="size-5" />}
             label="待审核申请"
             value={pendingCount}
-            hint="商家提交资料后进入"
+            hint="商户提交资料后进入"
             tone="orange"
           />
           <StoreSummary
@@ -69,36 +69,36 @@ export default async function StoresPage() {
         <div className="mt-4 grid gap-3 text-sm text-[#666666] md:grid-cols-3">
           <FlowStep
             index="1"
-            title="商家申请入驻"
-            description="商家端提交联系人、手机号、门店地址和经营品类。"
+            title="商户申请入驻"
+            description="商户端提交联系人、手机号、门店地址和经营品类。"
             tone="orange"
           />
           <FlowStep
             index="2"
             title="平台审核门店"
-            description="审核通过后自动生成商家门店账号和门店编码。"
+            description="审核通过后自动生成商户门店账号和门店编码。"
           />
           <FlowStep
             index="3"
             title="配置配送与上架"
-            description="商家登录上传商品，平台审核商品后用户端可见。"
+            description="商户登录上传商品，平台审核商品后用户端可见。"
             tone="green"
           />
         </div>
       </Panel>
 
-      <Panel title="商家端互通检查">
+      <Panel title="商户端互通检查">
         <div className="grid gap-3 md:grid-cols-3">
           <StoreFlowCard
-            title="商家提交入驻"
+            title="商户提交入驻"
             value={`${applications.length} 条申请`}
-            description="商家端提交后会直接进入这里，待审核数量应与商家端查询状态一致。"
+            description="商户端提交后会直接进入这里，待审核数量应与商户端查询状态一致。"
             tone="orange"
           />
           <StoreFlowCard
             title="审核生成门店"
             value={`${stores.length} 家门店`}
-            description="审核通过后自动生成门店编码，商家端才能登录、切换门店和上架商品。"
+            description="审核通过后自动生成门店编码，商户端才能登录、切换门店和上架商品。"
           />
           <StoreFlowCard
             title="配送可营业"
@@ -111,7 +111,7 @@ export default async function StoresPage() {
 
       <Panel title="入驻审核">
         {applications.length === 0 ? (
-          <div className="rounded-xl bg-[#F7F8FA] p-5 text-sm text-[#666666]">暂无商家入驻申请</div>
+          <div className="rounded-xl bg-[#F7F8FA] p-5 text-sm text-[#666666]">暂无商户入驻申请</div>
         ) : (
           <div className="space-y-3">
             {sortedApplications.map((application) => (
@@ -214,7 +214,7 @@ export default async function StoresPage() {
       {stores.length === 0 ? (
         <Panel>
           <div className="text-sm text-[#666666]">
-            暂无门店数据。审核通过第一家商家入驻申请后会生成门店。
+            暂无门店数据。审核通过第一家商户入驻申请后会生成门店。
           </div>
         </Panel>
       ) : (

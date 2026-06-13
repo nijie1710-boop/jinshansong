@@ -15,7 +15,7 @@ const miniapps = [
   },
   {
     key: "merchant",
-    label: "商家端",
+    label: "商户端",
     manifestPath: "apps/merchant-miniapp/src/manifest.json",
     envNames: ["MP_WEIXIN_MERCHANT_APP_ID", "WECHAT_MERCHANT_APP_ID"],
     argNames: ["merchant", "merchant-appid"]
@@ -115,7 +115,7 @@ const changes = miniapps.map((miniapp) => {
   };
 });
 
-console.log(`金闪送小程序 AppID 配置完成：${mode}`);
+console.log(`金泽快送小程序 AppID 配置完成：${mode}`);
 for (const change of changes) {
   console.log(`- ${change.label}: ${change.appId} (${change.manifestPath})`);
 }

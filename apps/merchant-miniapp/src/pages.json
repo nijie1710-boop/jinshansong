@@ -9,7 +9,7 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationBarTitleText": "商家首页",
+        "navigationBarTitleText": "商户首页",
         "enablePullDownRefresh": true
       }
     },
@@ -105,7 +105,7 @@
   },
   "globalStyle": {
     "navigationBarTextStyle": "white",
-    "navigationBarTitleText": "金闪送商家端",
+    "navigationBarTitleText": "金泽快送商户端",
     "navigationBarBackgroundColor": "#FF7A00",
     "backgroundColor": "#F7F8FA",
     "backgroundTextStyle": "dark"

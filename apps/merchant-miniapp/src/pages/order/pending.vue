@@ -36,7 +36,7 @@
       </view>
 
       <view class="product-row">
-        <view class="product-image">金闪送</view>
+        <view class="product-image">金泽快送</view>
         <view class="product-info">
           <text class="product-name">{{ order.productName }}</text>
           <view class="product-meta">

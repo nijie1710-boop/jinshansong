@@ -1,7 +1,18 @@
-let rawBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+let rawBaseUrl = "";
+
+rawBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
 // #ifdef MP-WEIXIN
-rawBaseUrl = import.meta.env.VITE_MP_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3001";
+rawBaseUrl = import.meta.env.VITE_MP_API_BASE_URL || rawBaseUrl;
 // #endif
+
+if (!rawBaseUrl) {
+  // #ifdef MP-WEIXIN
+  rawBaseUrl = "https://api.jssbuy.cn";
+  // #endif
+  // #ifndef MP-WEIXIN
+  rawBaseUrl = "http://localhost:3001";
+  // #endif
+}
 
 export const API_BASE_URL = rawBaseUrl.endsWith("/api") ? rawBaseUrl : `${rawBaseUrl}/api`;

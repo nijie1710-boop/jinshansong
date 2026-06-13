@@ -61,7 +61,7 @@
             <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text">
               商品图片
             </text>
-            <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
+            <text v-else-if="!displayImageUrl(product.coverUrl)">金泽快送</text>
           </view>
           <view class="product-info">
             <text class="product-name">{{ product.name }}</text>

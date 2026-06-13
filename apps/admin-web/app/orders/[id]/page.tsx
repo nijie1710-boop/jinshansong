@@ -414,7 +414,7 @@ function actionLabel(action: string) {
   const labels: Record<string, string> = {
     CREATE: "用户提交订单",
     MOCK_PAY: "模拟支付",
-    MERCHANT_ACCEPT: "商家接单",
+    MERCHANT_ACCEPT: "商户接单",
     MERCHANT_READY: "备货完成",
     RIDER_PICKUP: "骑手取货",
     ORDER_COMPLETE: "订单完成",

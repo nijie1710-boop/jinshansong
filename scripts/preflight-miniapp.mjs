@@ -103,7 +103,7 @@ function inferBuiltApiTarget(text) {
 }
 
 inspectMiniapp("用户端", "apps/user-miniapp", "MP_WEIXIN_USER_APP_ID");
-inspectMiniapp("商家端", "apps/merchant-miniapp", "MP_WEIXIN_MERCHANT_APP_ID");
+inspectMiniapp("商户端", "apps/merchant-miniapp", "MP_WEIXIN_MERCHANT_APP_ID");
 
 addCheck(Boolean(env.VITE_MP_API_BASE_URL), "error", "VITE_MP_API_BASE_URL 已配置");
 if (env.WECHAT_LOGIN_MODE === "real") {
@@ -117,17 +117,17 @@ if (env.WECHAT_LOGIN_MODE === "real") {
   addCheck(
     isWechatAppId(env.WECHAT_MERCHANT_APP_ID),
     "error",
-    "商家端 WECHAT_MERCHANT_APP_ID 格式正确"
+    "商户端 WECHAT_MERCHANT_APP_ID 格式正确"
   );
   addCheck(
     Boolean(env.WECHAT_MERCHANT_APP_SECRET),
     "error",
-    "商家端 WECHAT_MERCHANT_APP_SECRET 已配置"
+    "商户端 WECHAT_MERCHANT_APP_SECRET 已配置"
   );
   addCheck(
     env.WECHAT_MERCHANT_APP_ID === env.MP_WEIXIN_MERCHANT_APP_ID,
     "error",
-    "商家端登录 AppID 与小程序 AppID 一致"
+    "商户端登录 AppID 与小程序 AppID 一致"
   );
 }
 if (env.MP_WEIXIN_MODE === "real") {

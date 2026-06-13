@@ -7,7 +7,7 @@
           <image class="brand-mark-image" src="/static/brand/logo-icon.png" mode="aspectFit" />
         </view>
         <view class="brand-copy">
-          <text class="brand-title">金闪送</text>
+          <text class="brand-title">金泽快送</text>
           <text class="brand-desc">福州本地数码配件即时闪购</text>
         </view>
       </view>
@@ -130,7 +130,7 @@ async function handleLogin(event?: PhoneNumberEvent) {
     const session = await api.wechatLogin({
       code,
       phoneCode,
-      nickname: "金闪送用户"
+      nickname: "金泽快送用户"
     });
     saveUserSession(session);
     uni.showToast({ title: phoneRejected ? "已登录，未授权手机号" : "登录成功", icon: "success" });

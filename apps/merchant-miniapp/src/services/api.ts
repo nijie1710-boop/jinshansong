@@ -270,6 +270,11 @@ export type WechatMerchantLoginPayload = {
   phone?: string;
 };
 
+export type WechatPhoneResult = {
+  phone: string;
+  loginMode?: "mock" | "real";
+};
+
 function getStorageString(key: string) {
   const value = uni.getStorageSync(key);
   return typeof value === "string" ? value : "";
@@ -292,12 +297,24 @@ function authHeaders() {
   };
 }
 
+export function clearMerchantStoreContext() {
+  uni.removeStorageSync(MERCHANT_STORE_CODE_KEY);
+  uni.removeStorageSync(MERCHANT_STORE_KEY);
+  uni.removeStorageSync(MERCHANT_STORES_KEY);
+}
+
 export function saveMerchantSession(session: MerchantSession) {
   uni.setStorageSync(MERCHANT_TOKEN_KEY, session.token);
   uni.setStorageSync(MERCHANT_STORE_CODE_KEY, session.store.code);
   uni.setStorageSync(MERCHANT_STORE_KEY, session.store);
   saveCachedMerchantStores(session.stores?.length ? session.stores : [session.store]);
 }
+
+type MerchantRequestOptions = {
+  method?: "GET" | "POST";
+  data?: unknown;
+  _retryingAfterStoreMismatch?: boolean;
+};
 
 export function saveCachedMerchantStore(store: MerchantStore) {
   uni.setStorageSync(MERCHANT_STORE_CODE_KEY, store.code);
@@ -351,23 +368,60 @@ function responseMessage(data: unknown) {
   return "接口请求失败";
 }
 
+function ensureMerchantLoginPage() {
+  const pages = getCurrentPages();
+  const currentRoute = pages[pages.length - 1]?.route ?? "";
+  if (currentRoute && currentRoute.indexOf("pages/login/index") >= 0) {
+    return;
+  }
+  uni.reLaunch({ url: "/pages/login/index" });
+}
+
 export function request<T>(
   path: string,
-  options: { method?: "GET" | "POST"; data?: unknown } = {}
+  options: MerchantRequestOptions = {}
 ) {
+  const retrying = Boolean(options._retryingAfterStoreMismatch);
   return new Promise<T>((resolve, reject) => {
+    const headers = authHeaders();
+    const requestStoreCode = "x-store-code" in headers;
     uni.request({
       url: `${API_BASE_URL}${path}`,
       method: options.method ?? "GET",
       data: options.data as Record<string, unknown> | string | ArrayBuffer | undefined,
       header: {
         "content-type": "application/json",
-        ...authHeaders()
+        ...headers
       },
       success(response) {
         if (response.statusCode >= 200 && response.statusCode < 300) {
           resolve(response.data as T);
           return;
+        }
+
+        if (
+          !retrying &&
+          requestStoreCode &&
+          (response.statusCode === 401 || response.statusCode === 403) &&
+          Boolean(response.data)
+        ) {
+          clearMerchantStoreContext();
+          void request<T>(path, {
+            ...options,
+            _retryingAfterStoreMismatch: true
+          }).then(resolve).catch(reject);
+          return;
+        }
+
+        if ((response.statusCode === 401 || response.statusCode === 403) && getMerchantToken()) {
+          if (!retrying && requestStoreCode) {
+            clearMerchantStoreContext();
+          } else {
+            clearMerchantSession();
+            if (responseMessage(response.data) !== "请先登录商户端") {
+              ensureMerchantLoginPage();
+            }
+          }
         }
         reject(new ApiRequestError(responseMessage(response.data), response.statusCode));
       },
@@ -421,10 +475,10 @@ export const api = {
     request<MerchantSession>("/auth/merchant/mock-login", { method: "POST", data: { storeCode } }),
   wechatLogin: (data: WechatMerchantLoginPayload) =>
     request<MerchantLoginResult>("/auth/merchant/wechat-login", { method: "POST", data }),
+  wechatPhone: (data: { phoneCode?: string; phone?: string }) =>
+    request<WechatPhoneResult>("/auth/merchant/wechat-phone", { method: "POST", data }),
   apply: (data: StoreApplicationPayload) =>
     request<StoreApplication>("/auth/merchant/apply", { method: "POST", data }),
-  login: (phone: string) =>
-    request<MerchantLoginResult>("/auth/merchant/login", { method: "POST", data: { phone } }),
   stores: () => request<MerchantStore[]>("/auth/merchant/stores"),
   applications: () => request<StoreApplication[]>("/auth/merchant/applications"),
   switchStore: (storeCode: string) =>

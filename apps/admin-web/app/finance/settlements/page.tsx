@@ -41,7 +41,7 @@ export default async function SettlementsPage() {
         </Panel>
       </div>
 
-      <Panel title="商家提现申请">
+      <Panel title="商户提现申请">
         <div className="mb-4 flex flex-wrap gap-2 text-sm">
           <StatusPill tone={pendingReviewCount > 0 ? "orange" : "gray"}>
             待审核 {pendingReviewCount}
@@ -55,7 +55,7 @@ export default async function SettlementsPage() {
           <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="bg-[#F7F8FA] text-[#666666]">
               <tr>
-                <th className="px-4 py-3 font-medium">商家</th>
+                <th className="px-4 py-3 font-medium">商户</th>
                 <th className="px-4 py-3 font-medium">周期</th>
                 <th className="px-4 py-3 font-medium">订单数</th>
                 <th className="px-4 py-3 font-medium">申请金额</th>
@@ -116,7 +116,7 @@ export default async function SettlementsPage() {
               {settlementRequests.length === 0 ? (
                 <tr>
                   <td className="px-4 py-8 text-center text-[#666666]" colSpan={7}>
-                    暂无商家提现申请。商家端提交后会出现在这里。
+                    暂无商户提现申请。商户端提交后会出现在这里。
                   </td>
                 </tr>
               ) : null}

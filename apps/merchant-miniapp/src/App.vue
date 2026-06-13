@@ -14,7 +14,7 @@ export default {
 <style>
 page {
   min-height: 100%;
-  background: #f7f8fa;
+  background: #f6f7f9;
   color: #111111;
   font-family:
     "PingFang SC",
@@ -26,7 +26,9 @@ page {
 }
 
 body {
-  background: linear-gradient(180deg, #dfe3e8 0%, #eef1f5 100%);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 122, 0, 0.16), transparent 28%),
+    linear-gradient(180deg, #eef1f5 0%, #f7f8fa 100%);
   scrollbar-width: none;
 }
 
@@ -44,14 +46,14 @@ uni-app {
   min-height: 100vh;
   margin: 0 auto;
   overflow-x: hidden;
-  background: #f7f8fa;
-  box-shadow: 0 18px 70px rgba(17, 17, 17, 0.18);
+  background: #f6f7f9;
+  box-shadow: 0 18px 70px rgba(17, 17, 17, 0.14);
   scrollbar-width: none;
 }
 
 uni-page-body {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: #f6f7f9;
 }
 
 uni-page-head .uni-page-head {
@@ -69,7 +71,7 @@ uni-tabbar .uni-tabbar {
   max-width: 390px !important;
   transform: translateX(-50%);
   border-top: 0 !important;
-  box-shadow: 0 -8px 28px rgba(17, 17, 17, 0.08);
+  box-shadow: 0 -8px 26px rgba(17, 17, 17, 0.075);
 }
 
 .page {
@@ -81,11 +83,11 @@ uni-tabbar .uni-tabbar {
 }
 
 .card {
-  border: 1px solid rgba(17, 17, 17, 0.025);
-  border-radius: 20px;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  border-radius: 18px;
   background: #ffffff;
   padding: 14px;
-  box-shadow: 0 10px 28px rgba(17, 17, 17, 0.055);
+  box-shadow: 0 10px 26px rgba(17, 17, 17, 0.05);
 }
 
 .section {
@@ -96,7 +98,7 @@ uni-tabbar .uni-tabbar {
 
 .section-title {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .muted {
@@ -113,9 +115,10 @@ uni-tabbar .uni-tabbar {
   align-items: center;
   border-radius: 999px;
   padding: 3px 7px;
-  background: #fff2e8;
+  background: #fff7ed;
   color: #ff7a00;
   font-size: 11px;
+  font-weight: 700;
 }
 
 .primary-button {
@@ -128,9 +131,9 @@ uni-tabbar .uni-tabbar {
   border-radius: 999px;
   background: linear-gradient(135deg, #ff7a00, #ffb020);
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1;
-  box-shadow: 0 8px 18px rgba(255, 122, 0, 0.22);
+  box-shadow: 0 9px 18px rgba(255, 122, 0, 0.2);
 }
 
 .ghost-button {
@@ -144,7 +147,7 @@ uni-tabbar .uni-tabbar {
   border: 1px solid #ff7a00;
   color: #ff7a00;
   background: #ffffff;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1;
 }
 

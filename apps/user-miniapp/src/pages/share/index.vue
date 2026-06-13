@@ -1,7 +1,7 @@
 <template>
   <view class="page share-page">
     <view class="share-hero">
-      <text class="eyebrow">金闪送分享有礼</text>
+      <text class="eyebrow">金泽快送分享有礼</text>
       <text class="title">邀请好友下单，奖励券实时入账</text>
       <text class="muted">好友完成首单后，奖励券会自动进入你的账户。</text>
       <button class="primary-button" :disabled="claiming" @tap="claimReferralCoupon">

@@ -187,7 +187,7 @@ export class DeliveryService {
           status: result.status,
           riderNo: result.riderNo || order.riderNo,
           riderName: result.riderName || `${providerConfig.name}骑手`,
-          riderPhone: result.riderPhone || "13800000086",
+          riderPhone: result.riderPhone ?? null,
           fee: money(result.feeCost),
           distanceKm: money(result.distanceKm),
           requestPayload: requestPayload as Prisma.InputJsonObject,
@@ -207,7 +207,7 @@ export class DeliveryService {
           status: result.status,
           riderNo: result.riderNo || order.riderNo,
           riderName: result.riderName || `${providerConfig.name}骑手`,
-          riderPhone: result.riderPhone || "13800000086",
+          riderPhone: result.riderPhone ?? null,
           fee: money(result.feeCost),
           distanceKm: money(result.distanceKm),
           requestPayload: requestPayload as Prisma.InputJsonObject,
@@ -346,7 +346,7 @@ export class DeliveryService {
     const providerOrderNo = normalizedBody.providerOrderNo?.trim();
     const orderNo = normalizedBody.orderNo?.trim();
     if (!providerOrderNo && !orderNo) {
-      throw new BadRequestException("缺少第三方配送单号或金闪送订单号");
+      throw new BadRequestException("缺少第三方配送单号或金泽快送订单号");
     }
 
     const task = await this.prisma.deliveryTask.findFirst({
@@ -611,7 +611,7 @@ export class DeliveryService {
       storeId: order.currentStore?.id ?? order.store?.id,
       goodsAmount: toNumber(order.goodsAmount),
       pickup: {
-        name: store?.name ?? "金闪送门店",
+        name: store?.name ?? "金泽快送门店",
         phone: store?.phone ?? "",
         address: store?.address ?? "",
         latitude: store?.latitude ? toNumber(store.latitude) : null,

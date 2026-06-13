@@ -18,7 +18,7 @@
         <text class="status">{{ order.status }}</text>
       </view>
       <view class="product-row">
-        <view class="product-image">金闪送</view>
+        <view class="product-image">金泽快送</view>
         <view class="product-info">
           <text class="product-name">{{ order.productName }}</text>
           <text class="muted">x{{ order.quantity }} · {{ order.storeName }}</text>

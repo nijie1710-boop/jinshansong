@@ -44,7 +44,7 @@ export default async function SettingsPage() {
     {
       label: "小程序备案 / 合法域名",
       done: false,
-      detail: "ICP备案、HTTPS 和微信后台合法域名配置完成后可切正式环境"
+      detail: "ICP备案已通过，DNS、HTTPS 和微信后台合法域名完成后可切正式环境"
     }
   ];
 
@@ -113,11 +113,11 @@ export default async function SettingsPage() {
           ))}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <StatusItem label="ICP备案" ok={false} value="待提交/待通过" />
+          <StatusItem label="ICP备案" ok={true} value="已通过" />
           <StatusItem
             label="HTTPS"
             ok={Boolean(health.config?.apiPublicBaseUrl?.https)}
-            value={health.config?.apiPublicBaseUrl?.https ? "已启用" : "待备案后启用"}
+            value={health.config?.apiPublicBaseUrl?.https ? "已启用" : "待 DNS/证书启用"}
           />
           <StatusItem
             label="当前预览"
@@ -126,8 +126,8 @@ export default async function SettingsPage() {
           />
         </div>
         <p className="mt-4 text-sm text-[#666666]">
-          备案通过后，将 API 切换到 `https://api.jssbuy.cn`，后台切换到
-          `https://admin.jssbuy.cn`，再到微信公众平台配置合法域名。
+          备案已通过。下一步将域名解析到服务器，签发 HTTPS 证书，将 API 切换到
+          `https://api.jssbuy.cn`，后台切换到 `https://admin.jssbuy.cn`，再到微信公众平台配置合法域名。
         </p>
       </Panel>
 

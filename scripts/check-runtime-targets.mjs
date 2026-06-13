@@ -20,32 +20,32 @@ const runtimeTargets = [
   {
     name: "用户端 H5 预览",
     value:
-      readTargetFromLog(".logs/screen-user-preview.log", "VITE_API_BASE_URL") ||
-      env.VITE_API_BASE_URL
+      env.VITE_API_BASE_URL ||
+      readTargetFromLog(".logs/screen-user-preview.log", "VITE_API_BASE_URL")
   },
   {
-    name: "商家端 H5 预览",
+    name: "商户端 H5 预览",
     value:
-      readTargetFromLog(".logs/screen-merchant-preview.log", "VITE_API_BASE_URL") ||
-      env.VITE_API_BASE_URL
+      env.VITE_API_BASE_URL ||
+      readTargetFromLog(".logs/screen-merchant-preview.log", "VITE_API_BASE_URL")
   },
   {
     name: "后台 Web 预览",
     value:
-      readTargetFromLog(".logs/screen-admin-preview.log", "NEXT_PUBLIC_API_BASE_URL") ||
-      env.NEXT_PUBLIC_API_BASE_URL
+      env.NEXT_PUBLIC_API_BASE_URL ||
+      readTargetFromLog(".logs/screen-admin-preview.log", "NEXT_PUBLIC_API_BASE_URL")
   },
   {
     name: "用户端微信构建包",
     value: readBuiltApiTarget("apps/user-miniapp/dist/build/mp-weixin/config/api.js")
   },
   {
-    name: "商家端微信构建包",
+    name: "商户端微信构建包",
     value: readBuiltApiTarget("apps/merchant-miniapp/dist/build/mp-weixin/config/api.js")
   }
 ];
 
-console.log(`金闪送运行环境一致性检查：${target}`);
+console.log(`金泽快送运行环境一致性检查：${target}`);
 console.log("");
 
 for (const item of runtimeTargets) {
@@ -70,7 +70,12 @@ addCheck(
 );
 
 await checkHealth("本机 API", "http://localhost:3001/api/health", target === "local");
-await checkHealth("服务器 API", "http://122.51.248.210/api/health", target === "server");
+await checkHealth("服务器 IP API", "http://122.51.248.210/api/health", target === "server");
+await checkHealth(
+  "正式 HTTPS API",
+  "https://api.jssbuy.cn/api/health",
+  target === "production"
+);
 
 console.log("");
 for (const check of checks) {
@@ -112,7 +117,7 @@ function readTargetFromLog(relativePath, key) {
 function readBuiltApiTarget(relativePath) {
   const text = readTextIfExists(join(root, relativePath));
   const matches = text.match(/https?:\/\/[^"'`;]+/g);
-  return matches?.at(-1) || "";
+  return matches?.[0] || "";
 }
 
 function readTextIfExists(filePath) {

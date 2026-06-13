@@ -336,12 +336,12 @@ export class StoreService {
     const requestedCode = (storeCode || "").trim();
 
     if (!requestedCode) {
-      throw new BadRequestException("请先登录已审核通过的商家门店");
+      throw new BadRequestException("请先登录已审核通过的商户门店");
     }
 
     const store = await this.prisma.store.findUnique({ where: { code: requestedCode } });
     if (!store) {
-      throw new NotFoundException("商家门店不存在");
+      throw new NotFoundException("商户门店不存在");
     }
     if (store.status === StoreStatus.DISABLED) {
       throw new BadRequestException("门店已禁用，暂不能操作");

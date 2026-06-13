@@ -18,7 +18,7 @@ export default async function OrdersPage() {
   return (
     <PageShell
       title="订单管理"
-      description="用户下单、商家履约、聚合配送和单单净利润都在这里核对，负利润订单会自动标红。"
+      description="用户下单、商户履约、聚合配送和单单净利润都在这里核对，负利润订单会自动标红。"
       actions={
         <div className="flex flex-wrap gap-2">
           <StatusPill tone={pendingOrders > 0 ? "orange" : "gray"}>待接单 {pendingOrders}</StatusPill>
@@ -35,7 +35,7 @@ export default async function OrdersPage() {
         />
         <OrderStat
           icon={<Clock3 className="size-5" />}
-          label="待商家接单"
+          label="待商户接单"
           value={pendingOrders}
           hint="超时会进入自动转单"
           tone="orange"

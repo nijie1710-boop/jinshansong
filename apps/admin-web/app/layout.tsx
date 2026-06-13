@@ -4,7 +4,7 @@ import { AdminShell } from "./admin-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "金闪送后台管理",
+  title: "金泽快送后台管理",
   description: "福州同城数码配件即时闪购平台后台"
 };
 

@@ -14,7 +14,7 @@ export class UserService {
       update: {},
       create: {
         phone: DEMO_USER_PHONE,
-        nickname: "金闪送用户"
+        nickname: "金泽快送用户"
       }
     });
   }

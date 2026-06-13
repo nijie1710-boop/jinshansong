@@ -2,7 +2,7 @@
   <view class="page product-manage-page">
     <view class="product-hero">
       <view>
-        <text class="hero-kicker">金闪送门店商品</text>
+        <text class="hero-kicker">金泽快送门店商品</text>
         <text class="hero-title">上架附近现货</text>
         <text class="hero-subtitle">上传主图、详情图、价格和说明，后台审核通过后用户端展示。</text>
       </view>
@@ -12,7 +12,7 @@
     <view v-if="!hasMerchantAccess" class="audit-gate card">
       <view>
         <text class="section-title">请先完成入驻审核</text>
-        <text class="muted">后台审核通过后，商家才能上架商品和调整库存。</text>
+        <text class="muted">后台审核通过后，商户才能上架商品和调整库存。</text>
       </view>
       <button class="primary-button" @tap="goLogin">去申请入驻</button>
     </view>
@@ -454,7 +454,7 @@
           <text v-if="isHttpImageBlocked(product.coverUrl)" class="blocked-product-text"
             >HTTPS</text
           >
-          <text v-else-if="!displayImageUrl(product.coverUrl)">金闪送</text>
+          <text v-else-if="!displayImageUrl(product.coverUrl)">金泽快送</text>
         </view>
         <view class="product-info">
           <view class="product-title-row">
@@ -1096,7 +1096,7 @@ function compressImageForUpload(filePath: string) {
 
 async function uploadImage(filePath: string) {
   if (!getMerchantToken()) {
-    throw new ApiRequestError("登录状态已过期，请重新登录商家端", 401);
+    throw new ApiRequestError("登录状态已过期，请重新登录商户端", 401);
   }
   const compressedFilePath = await compressImageForUpload(filePath);
   try {

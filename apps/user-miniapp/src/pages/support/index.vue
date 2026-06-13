@@ -2,7 +2,7 @@
   <view class="page support-page">
     <view class="support-hero">
       <view>
-        <text class="eyebrow">金闪送服务中心</text>
+        <text class="eyebrow">金泽快送服务中心</text>
         <text class="title">客服与售后</text>
         <text class="desc">订单问题、配送异常、退款售后和服务规则统一在这里查看。</text>
       </view>

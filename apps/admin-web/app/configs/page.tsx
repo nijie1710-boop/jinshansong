@@ -386,7 +386,7 @@ export default async function ConfigsPage() {
             </div>
             <ToggleField
               defaultChecked={boolValue(payment, "requirePaidBeforeDispatch", true)}
-              label="支付成功后才允许商家接单和呼叫配送"
+              label="支付成功后才允许商户接单和呼叫配送"
               name="requirePaidBeforeDispatch"
             />
             <p className="text-sm text-[#666666]">
@@ -509,7 +509,7 @@ export default async function ConfigsPage() {
               ))}
             </div>
             <p className="text-sm text-[#666666]">
-              确认订单页会展示各平台预估成本和时效；商家接单后按策略发单。没有真实门店入驻前可保持
+              确认订单页会展示各平台预估成本和时效；商户接单后按策略发单。没有真实门店入驻前可保持
               预览联调；正式推广门店后，需要在“门店管理”里给每家门店单独绑定平台门店/商户 ID。
             </p>
             <SaveButton />

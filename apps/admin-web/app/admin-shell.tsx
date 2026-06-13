@@ -63,10 +63,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="mb-4 rounded-[22px] bg-white/[0.06] p-3.5 ring-1 ring-white/10">
               <div className="flex items-center gap-3">
                 <div className="flex size-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-                  <img className="size-9 object-contain" src="/brand/logo-icon.png" alt="金闪送" />
+                  <img className="size-9 object-contain" src="/brand/logo-icon.png" alt="金泽快送" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold">金闪送</div>
+                  <div className="text-lg font-semibold">金泽快送</div>
                   <div className="mt-0.5 text-xs text-white/55">福州即时闪购运营台</div>
                 </div>
               </div>

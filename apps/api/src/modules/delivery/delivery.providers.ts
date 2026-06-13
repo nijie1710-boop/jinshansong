@@ -291,7 +291,7 @@ class ConfiguredDeliveryProvider implements DeliveryProvider {
       status: DeliveryTaskStatus.ACCEPTED,
       riderNo,
       riderName: `${this.config.name}骑手${riderNo}`,
-      riderPhone: "13800000086",
+      riderPhone: null,
       feeCost: quote.feeCost,
       distanceKm: quote.distanceKm,
       responsePayload: {
@@ -471,8 +471,8 @@ class MeituanDeliveryProvider extends ConfiguredDeliveryProvider {
       goods_weight: Math.max(1, Math.round((this.config.goodsWeightKg ?? 1) * 1000)),
       goods_detail: JSON.stringify(goodsDetail),
       pay_type_code: this.config.payTypeCode ?? 0,
-      outer_order_source_desc: "金闪送",
-      note: "金闪送数码配件即时配送",
+      outer_order_source_desc: "金泽快送",
+      note: "金泽快送数码配件即时配送",
       poi_seq: request.orderNo || ""
     };
   }

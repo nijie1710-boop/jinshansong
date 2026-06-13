@@ -623,11 +623,11 @@ export class ProductService {
         categoryId: category?.id,
         name,
         slug: slugifyName(name),
-        description: dto.description?.trim() || "商家新增门店现货商品",
+        description: dto.description?.trim() || "商户新增门店现货商品",
         coverUrl: dto.coverUrl?.trim() || null,
         detailImageUrls: normalizeImageUrls(dto.detailImageUrls),
         reviewStatus: ProductReviewStatus.PENDING,
-        reviewRemark: "商家提交商品资料，待后台审核",
+        reviewRemark: "商户提交商品资料，待后台审核",
         reviewedAt: null,
         skus: {
           create: skuInputs.map((sku, index) => ({
@@ -984,7 +984,7 @@ export class ProductService {
     const requestedCode = (storeCode || "").trim();
 
     if (!requestedCode) {
-      throw new BadRequestException("请先登录已审核通过的商家门店");
+      throw new BadRequestException("请先登录已审核通过的商户门店");
     }
 
     const requestedStore = await this.prisma.store.findUnique({ where: { code: requestedCode } });
@@ -996,6 +996,6 @@ export class ProductService {
       return requestedStore;
     }
 
-    throw new BadRequestException("商家门店不存在，请先提交入驻申请并等待审核");
+    throw new BadRequestException("商户门店不存在，请先提交入驻申请并等待审核");
   }
 }

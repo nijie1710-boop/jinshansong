@@ -38,7 +38,7 @@
           />
           <view class="mini-device"></view>
           <text v-if="isHttpImageBlocked(item.imageUrl)" class="image-note">商品图片</text>
-          <text v-else-if="!displayImageUrl(item.imageUrl)">金闪送</text>
+          <text v-else-if="!displayImageUrl(item.imageUrl)">金泽快送</text>
         </view>
         <view class="product-info">
           <text class="product-name">{{ item.name }}</text>
@@ -222,8 +222,8 @@ const fromCart = ref(false);
 const confirmItems = ref<CartItem[]>([]);
 const submitting = ref(false);
 const quoting = ref(false);
-const riderNo = ref("0086");
-const promoterCode = ref("FZTG001");
+const riderNo = ref("");
+const promoterCode = ref("");
 const quoteError = ref("");
 const serviceArea = ref<PublicConfig["serviceArea"]>({ ...defaultServiceArea });
 const quote = ref<ApiQuote>({
@@ -265,6 +265,10 @@ const serviceAreaText = computed(() => {
   return `已覆盖 ${address.value.district}，下单前会自动匹配附近门店和配送平台。`;
 });
 
+function optionalInput(value: string) {
+  return value.trim() || undefined;
+}
+
 async function loadConfirmData() {
   try {
     serviceArea.value = (await api.publicConfig()).serviceArea;
@@ -298,8 +302,8 @@ async function refreshQuote() {
     quote.value = await api.quote({
       addressId: address.value.id,
       items: orderItems.value,
-      riderNo: riderNo.value.trim(),
-      promoterCode: promoterCode.value.trim()
+      riderNo: optionalInput(riderNo.value),
+      promoterCode: optionalInput(promoterCode.value)
     });
   } catch (error) {
     quote.value = { ...quote.value, selectedDelivery: null, deliveryOptions: [] };
@@ -465,8 +469,8 @@ async function submitOrder() {
     const created = await api.createOrder({
       addressId: address.value.id,
       items: orderItems.value,
-      riderNo: riderNo.value.trim(),
-      promoterCode: promoterCode.value.trim()
+      riderNo: optionalInput(riderNo.value),
+      promoterCode: optionalInput(promoterCode.value)
     });
     const paymentResult = await api.wechatPay(created.id);
     const paid = await finishPayment(paymentResult);

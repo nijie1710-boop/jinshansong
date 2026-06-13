@@ -14,7 +14,7 @@
       <text v-if="isHttpImageBlocked(activeCoverUrl)" class="visual-brand visual-warning">
         商品图片
       </text>
-      <text v-else-if="!displayImageUrl(activeCoverUrl)" class="visual-brand">金闪送</text>
+      <text v-else-if="!displayImageUrl(activeCoverUrl)" class="visual-brand">金泽快送</text>
       <text class="visual-hint">门店现货 · 同城即达</text>
     </view>
 
@@ -90,7 +90,7 @@
 
     <view class="card section">
       <text class="section-title">商品说明</text>
-      <text class="description">{{ product.description || "商家暂未填写详细说明" }}</text>
+      <text class="description">{{ product.description || "商户暂未填写详细说明" }}</text>
     </view>
 
     <view v-if="product.detailImageUrls.length > 0" class="card section">

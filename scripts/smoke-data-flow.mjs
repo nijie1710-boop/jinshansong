@@ -63,10 +63,10 @@ async function loginMerchant() {
     body: JSON.stringify({ storeCode })
   });
   if (!session?.token || session.store?.code !== storeCode) {
-    fail("商家模拟登录没有返回当前门店 token");
+    fail("商户模拟登录没有返回当前门店 token");
   }
   context.merchantToken = session.token;
-  step("商家端登录 token 和门店绑定可用");
+  step("商户端登录 token 和门店绑定可用");
 }
 
 async function loginAdmin() {
@@ -112,7 +112,7 @@ async function assertWechatLoginBindingWorks() {
     })
   });
   if (!merchantSession?.canLogin || !merchantSession.token) {
-    fail("商家端微信登录没有绑定已审核门店账号");
+    fail("商户端微信登录没有绑定已审核门店账号");
   }
 
   const merchantSessionByOpenId = await request("/auth/merchant/wechat-login", {
@@ -120,10 +120,10 @@ async function assertWechatLoginBindingWorks() {
     body: JSON.stringify({ code: "smoke-merchant-code" })
   });
   if (!merchantSessionByOpenId?.canLogin || !merchantSessionByOpenId.token) {
-    fail("商家端已绑定 openId 后不能免填手机号登录");
+    fail("商户端已绑定 openId 后不能免填手机号登录");
   }
 
-  step("用户端/商家端微信登录绑定逻辑可用");
+  step("用户端/商户端微信登录绑定逻辑可用");
 }
 
 function merchantHeaders() {
@@ -166,7 +166,7 @@ async function assertImageUploadWorks() {
     context.uploadAssetIds.push(upload.id);
   }
 
-  step("入驻资质和商家商品图片统一上传接口可用");
+  step("入驻资质和商户商品图片统一上传接口可用");
 }
 
 async function createMerchantProduct() {
@@ -183,7 +183,7 @@ async function createMerchantProduct() {
       categoryId: category.id,
       name: `数据互通测试 Type-C 快充线 ${Date.now()}`,
       skuName: "1m 白色",
-      description: "用于验证用户端、商家端、后台数据互通的自动化测试商品",
+      description: "用于验证用户端、商户端、后台数据互通的自动化测试商品",
       salePrice: 21.9,
       settlePrice: 13.9,
       stock: 12
@@ -196,9 +196,9 @@ async function createMerchantProduct() {
   context.initialStock = product.stock;
 
   if (product.reviewStatus !== "PENDING") {
-    fail(`商家新增商品应为待审核，实际为 ${product.reviewStatus}`);
+    fail(`商户新增商品应为待审核，实际为 ${product.reviewStatus}`);
   }
-  step("商家端新增商品进入待审核");
+  step("商户端新增商品进入待审核");
 }
 
 async function assertMerchantSettingsCanPersist() {
@@ -220,7 +220,7 @@ async function assertMerchantSettingsCanPersist() {
   });
 
   if (updated.voiceReminderSwitch !== nextVoiceReminderSwitch || !updated.acceptOrderSwitch) {
-    fail("商家设置开关没有写入数据库");
+    fail("商户设置开关没有写入数据库");
   }
 
   const restored = await request("/merchant/store/settings", {
@@ -233,10 +233,10 @@ async function assertMerchantSettingsCanPersist() {
   });
 
   if (restored.voiceReminderSwitch !== store.voiceReminderSwitch || !restored.acceptOrderSwitch) {
-    fail("商家设置开关没有恢复成功");
+    fail("商户设置开关没有恢复成功");
   }
 
-  step("商家端设置开关真实保存可用");
+  step("商户端设置开关真实保存可用");
 }
 
 async function assertPendingProductHiddenFromUser() {
@@ -369,9 +369,9 @@ async function assertMerchantSeesPendingOrder() {
   });
   const found = pendingOrders.find((order) => order.id === context.orderId);
   if (!found) {
-    fail("商家端待接单列表没有出现用户支付后的订单");
+    fail("商户端待接单列表没有出现用户支付后的订单");
   }
-  step("商家端待接单列表收到用户订单");
+  step("商户端待接单列表收到用户订单");
 }
 
 async function completeMerchantOrder() {
@@ -388,10 +388,10 @@ async function completeMerchantOrder() {
       headers: merchantHeaders()
     });
     if (updated.statusCode !== expectedStatus) {
-      fail(`商家 ${action} 后状态应为 ${expectedStatus}，实际为 ${updated.statusCode}`);
+      fail(`商户 ${action} 后状态应为 ${expectedStatus}，实际为 ${updated.statusCode}`);
     }
   }
-  step("商家端接单、备货、取货、完成订单链路通过");
+  step("商户端接单、备货、取货、完成订单链路通过");
 }
 
 async function assertAdminAndUserRecords() {
@@ -457,7 +457,7 @@ async function assertOperationalPagesUseRealData() {
 
   const reconciliationItem = reconciliation.items?.find((item) => item.orderId === context.orderId);
   if (!reconciliationItem || reconciliation.pendingAmount <= 0) {
-    fail("商家对账中心没有汇总已完成订单");
+    fail("商户对账中心没有汇总已完成订单");
   }
 
   if (
@@ -467,7 +467,7 @@ async function assertOperationalPagesUseRealData() {
     fail("后台结算管理没有生成模拟结算汇总");
   }
 
-  step("商家对账、后台分类和后台结算均读取真实接口数据");
+  step("商户对账、后台分类和后台结算均读取真实接口数据");
 }
 
 async function assertRiskEventActions() {
@@ -550,7 +550,7 @@ async function cleanup() {
 }
 
 async function main() {
-  console.log(`金闪送数据互通 smoke test: ${baseUrl}`);
+  console.log(`金泽快送数据互通 smoke test: ${baseUrl}`);
   await loginUser();
   await loginMerchant();
   await loginAdmin();
