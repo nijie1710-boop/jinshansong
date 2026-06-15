@@ -56,13 +56,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[#F5F6F8]">
+    <div className="min-h-screen bg-[#F6F7F9]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[252px] shrink-0 border-r border-white/10 bg-[#0D1720] text-white shadow-2xl lg:sticky lg:top-0 lg:block lg:h-screen">
+        <aside className="hidden w-[252px] shrink-0 border-r border-white/10 bg-[#101820] text-white shadow-2xl lg:sticky lg:top-0 lg:block lg:h-screen">
           <div className="flex h-full flex-col p-4">
-            <div className="mb-4 rounded-[22px] bg-white/[0.06] p-3.5 ring-1 ring-white/10">
+            <div className="mb-4 rounded-2xl bg-white/[0.06] p-3.5 ring-1 ring-white/10">
               <div className="flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="flex size-11 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
                   <img className="size-9 object-contain" src="/brand/logo-icon.png" alt="金泽快送" />
                 </div>
                 <div>
@@ -70,7 +70,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   <div className="mt-0.5 text-xs text-white/55">福州即时闪购运营台</div>
                 </div>
               </div>
-              <div className="mt-3 rounded-2xl bg-[#FF7A00] px-3 py-2.5 shadow-lg shadow-orange-950/20">
+              <div className="mt-3 rounded-xl bg-[#FF7A00] px-3 py-2.5 shadow-lg shadow-orange-950/20">
                 <div className="text-sm font-semibold">运营数据联通</div>
                 <div className="mt-0.5 text-xs text-white/78">订单、商品、门店数据统一管理</div>
               </div>
@@ -94,7 +94,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                           aria-current={active ? "page" : undefined}
                           className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
                             active
-                              ? "bg-white font-semibold shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+                              ? "bg-white font-semibold shadow-[0_10px_22px_rgba(0,0,0,0.16)]"
                               : "text-white/70 hover:bg-white/[0.08] hover:text-white"
                           }`}
                           href={item.href}
@@ -126,23 +126,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
 
-            <div className="mt-4 rounded-[20px] bg-white/[0.06] p-3.5 text-sm ring-1 ring-white/10">
+            <div className="mt-4 rounded-2xl bg-white/[0.06] p-3.5 text-sm ring-1 ring-white/10">
               <div className="flex items-center justify-between">
                 <span className="text-white/68">上线状态</span>
-                <span className="rounded-full bg-[#FFB020]/20 px-2 py-1 text-xs text-[#FFD38A]">
-                  预部署
+                <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs text-emerald-200">
+                  可提审
                 </span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-[#FF7A00] to-[#FFB020]" />
+                <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-[#10B981] to-[#FFB020]" />
               </div>
-              <div className="mt-2 text-xs text-white/45">待补 HTTPS、支付、对象存储</div>
+              <div className="mt-2 text-xs text-white/45">待补真实支付、配送、对象存储</div>
             </div>
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
-          <header className="sticky top-0 z-20 border-b border-black/5 bg-white/[0.92] px-5 py-3 backdrop-blur-xl xl:px-8">
+          <header className="sticky top-0 z-20 border-b border-black/5 bg-white/[0.94] px-5 py-3 backdrop-blur-xl xl:px-8">
             <div className="mx-auto flex max-w-[1480px] items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-xs font-medium text-[#FF7A00]">
@@ -150,7 +150,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </div>
                 <div className="mt-0.5 text-lg font-semibold">运营管理台</div>
               </div>
-              <div className="hidden min-w-[320px] max-w-[520px] flex-1 items-center gap-2 rounded-2xl bg-[#F5F6F8] px-3 py-2 text-sm text-[#999999] ring-1 ring-black/5 md:flex">
+              <div className="hidden min-w-[320px] max-w-[520px] flex-1 items-center gap-2 rounded-xl bg-[#F5F6F8] px-3 py-2 text-sm text-[#999999] ring-1 ring-black/5 md:flex">
                 <Search className="size-4 text-[#FF7A00]" />
                 <span>搜索订单号、手机号、门店、商品</span>
               </div>

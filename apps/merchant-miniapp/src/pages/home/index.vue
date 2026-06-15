@@ -14,6 +14,20 @@
         <text class="online" :class="{ paused: !acceptingOrders }">{{ storeStatusText }}</text>
       </view>
       <view class="sound-state">新订单提示音：{{ voiceReminderText }}</view>
+      <view v-if="hasMerchantAccess" class="hero-status-strip">
+        <view>
+          <text class="strip-value">{{ merchantStats.todayOrders }}</text>
+          <text class="strip-label">今日订单</text>
+        </view>
+        <view>
+          <text class="strip-value">{{ merchantStats.pending }}</text>
+          <text class="strip-label">待接单</text>
+        </view>
+        <view>
+          <text class="strip-value">¥{{ merchantStats.pendingSettlement }}</text>
+          <text class="strip-label">待结算</text>
+        </view>
+      </view>
     </view>
 
     <view v-if="!hasMerchantAccess" class="audit-card">
@@ -467,18 +481,18 @@ onPullDownRefresh(() => {
 .merchant-home {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.18), transparent 24%),
-    #f7f8fa;
+    radial-gradient(circle at 100% 0%, rgba(255, 122, 0, 0.16), transparent 24%),
+    linear-gradient(180deg, #f8f9fb 0%, #f4f6f8 100%);
 }
 
 .merchant-hero {
   position: relative;
   overflow: hidden;
-  border-radius: 0 0 28px 28px;
+  border-radius: 0 0 24px 24px;
   margin: -12px -12px 0;
-  padding: 20px 16px 54px;
+  padding: 20px 16px 58px;
   background:
     radial-gradient(circle at 90% 0%, rgba(255, 255, 255, 0.24), transparent 30%),
     radial-gradient(circle at 100% 90%, rgba(255, 255, 255, 0.16), transparent 26%),
@@ -492,7 +506,7 @@ onPullDownRefresh(() => {
   bottom: -36px;
   width: 128px;
   height: 128px;
-  border-radius: 36px;
+  border-radius: 30px;
   background: rgba(255, 255, 255, 0.13);
   transform: rotate(-16deg);
   content: "";
@@ -505,7 +519,8 @@ onPullDownRefresh(() => {
 .product-line,
 .button-row,
 .section-head,
-.action-card {
+.action-card,
+.hero-status-strip {
   display: flex;
   align-items: center;
 }
@@ -518,7 +533,9 @@ onPullDownRefresh(() => {
 
 .app-name {
   display: block;
+  color: rgba(255, 255, 255, 0.82);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .brand-line {
@@ -547,6 +564,7 @@ onPullDownRefresh(() => {
   margin-top: 5px;
   font-size: 20px;
   font-weight: 800;
+  letter-spacing: 0;
 }
 
 .online {
@@ -564,11 +582,44 @@ onPullDownRefresh(() => {
 
 .sound-state {
   margin-top: 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 10px 11px;
   background: rgba(255, 255, 255, 0.16);
   font-size: 12px;
   backdrop-filter: blur(10px);
+}
+
+.hero-status-strip {
+  position: relative;
+  z-index: 1;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.hero-status-strip > view {
+  min-width: 0;
+  flex: 1;
+  border-radius: 14px;
+  padding: 9px 8px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.strip-value,
+.strip-label {
+  display: block;
+}
+
+.strip-value {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.strip-label {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
 }
 
 .stats-grid {
@@ -584,10 +635,10 @@ onPullDownRefresh(() => {
 .store-switch-card,
 .delivery-status-card,
 .order-card {
-  border: 1px solid rgba(17, 17, 17, 0.025);
-  border-radius: 20px;
+  border: 1px solid rgba(17, 17, 17, 0.045);
+  border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.065);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.055);
 }
 
 .store-switch-card {
@@ -646,8 +697,8 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  border: 1px solid rgba(17, 17, 17, 0.025);
-  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.045);
+  border-radius: 16px;
   padding: 13px;
   background: #ffffff;
   box-shadow: 0 10px 26px rgba(17, 17, 17, 0.055);
@@ -721,14 +772,14 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 18px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06);
 }
 
 .stat-card {
-  padding: 12px 6px;
+  padding: 12px 6px 11px;
   text-align: center;
 }
 
@@ -746,7 +797,7 @@ onPullDownRefresh(() => {
   display: block;
   margin-bottom: 4px;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .action-card {
@@ -760,7 +811,7 @@ onPullDownRefresh(() => {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid rgba(255, 122, 0, 0.1);
-  padding: 15px;
+  padding: 14px;
 }
 
 .delivery-status-card .muted {
@@ -821,11 +872,11 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid rgba(17, 17, 17, 0.025);
-  border-radius: 20px;
+  border: 1px solid rgba(17, 17, 17, 0.045);
+  border-radius: 16px;
   padding: 13px;
   background: #ffffff;
-  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.055);
 }
 
 .quick-icon {
@@ -856,10 +907,10 @@ onPullDownRefresh(() => {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  border: 1px solid rgba(255, 122, 0, 0.08);
-  border-radius: 20px;
+  border: 1px solid rgba(255, 122, 0, 0.1);
+  border-radius: 16px;
   padding: 13px;
-  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.08);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.07);
 }
 
 .order-card::before {

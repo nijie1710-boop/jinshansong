@@ -16,8 +16,7 @@
       </view>
       <view class="mini-actions">
         <button class="locate-button" @tap.stop="chooseHomeLocation">定位</button>
-        <text>•••</text>
-        <text>◎</text>
+        <button class="support-button" @tap.stop="openSupport">客服</button>
       </view>
     </view>
 
@@ -57,7 +56,11 @@
         <image class="hero-logo" src="/static/brand/logo-horizontal.png" mode="aspectFit" />
         <text class="hero-title">新人首单立减 5 元</text>
         <text class="hero-subtitle">福州同城数码配件 · 门店现货极速送</text>
-        <view class="hero-button">立即领取</view>
+        <view class="hero-meta-row">
+          <text>附近门店</text>
+          <text>现货优先</text>
+          <text>售后可追踪</text>
+        </view>
       </view>
       <view class="hero-visual">
         <view class="speed-pill">30min</view>
@@ -79,7 +82,7 @@
     <view class="card category-card">
       <view class="section-head">
         <text class="section-title">商品分类</text>
-        <text class="muted">附近品胜门店</text>
+        <text class="muted">附近可配送门店</text>
       </view>
       <view class="category-grid">
         <view
@@ -399,6 +402,11 @@ function openCategory(categoryId: string) {
   uni.setStorageSync("jss_active_category_id", categoryId);
 }
 
+function openSupport() {
+  if (!canNavigate()) return;
+  uni.navigateTo({ url: "/pages/support/index" });
+}
+
 function openProduct(id: string) {
   if (!canNavigate()) return;
   uni.navigateTo({ url: `/pages/product/detail?id=${id}` });
@@ -458,8 +466,10 @@ onPullDownRefresh(() => {
 .home-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: radial-gradient(circle at 18% 0%, rgba(255, 176, 32, 0.18), transparent 26%), #f7f8fa;
+  gap: 14px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 176, 32, 0.16), transparent 24%),
+    linear-gradient(180deg, #f8f9fb 0%, #f4f6f8 100%);
 }
 
 .topbar,
@@ -482,9 +492,10 @@ onPullDownRefresh(() => {
   top: 0;
   z-index: 5;
   margin: -12px -12px 0;
-  padding: 12px 12px 8px;
-  background: rgba(247, 248, 250, 0.94);
-  backdrop-filter: blur(14px);
+  padding: 12px 12px 10px;
+  background: rgba(248, 249, 251, 0.96);
+  border-bottom: 1px solid rgba(17, 17, 17, 0.04);
+  backdrop-filter: blur(16px);
 }
 
 .location {
@@ -545,13 +556,14 @@ onPullDownRefresh(() => {
 .mini-actions {
   gap: 8px;
   border-radius: 999px;
-  padding: 4px 9px;
+  padding: 4px;
   background: #ffffff;
   color: #111111;
-  box-shadow: 0 4px 14px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 4px 14px rgba(17, 17, 17, 0.055);
 }
 
-.locate-button {
+.locate-button,
+.support-button {
   display: flex;
   height: 24px;
   align-items: center;
@@ -566,7 +578,13 @@ onPullDownRefresh(() => {
   line-height: 1;
 }
 
-.locate-button::after {
+.support-button {
+  background: #f4f6f8;
+  color: #111111;
+}
+
+.locate-button::after,
+.support-button::after {
   border: 0;
 }
 
@@ -607,8 +625,9 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  border-radius: 999px;
-  padding: 8px 14px;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  border-radius: 16px;
+  padding: 9px 14px;
   background: #ffffff;
   color: #999999;
   font-size: 13px;
@@ -649,7 +668,7 @@ onPullDownRefresh(() => {
   justify-content: space-between;
   overflow: hidden;
   min-height: 136px;
-  border-radius: 24px;
+  border-radius: 20px;
   padding: 17px 16px;
   background:
     radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.88), transparent 22%),
@@ -674,6 +693,8 @@ onPullDownRefresh(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
+  min-width: 0;
+  flex: 1;
 }
 
 .hero-logo {
@@ -686,6 +707,7 @@ onPullDownRefresh(() => {
 .hero-title {
   font-size: 21px;
   font-weight: 800;
+  letter-spacing: 0;
 }
 
 .hero-subtitle {
@@ -694,14 +716,20 @@ onPullDownRefresh(() => {
   font-size: 12px;
 }
 
-.hero-button {
+.hero-meta-row {
+  display: flex;
+  max-width: 212px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.hero-meta-row text {
   border-radius: 999px;
-  padding: 7px 13px;
-  background: #ff7a00;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  box-shadow: 0 8px 16px rgba(255, 122, 0, 0.24);
+  padding: 4px 7px;
+  background: rgba(255, 255, 255, 0.66);
+  color: #7a3c00;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .hero-visual {
@@ -767,7 +795,7 @@ onPullDownRefresh(() => {
 .promise-card {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 13px 8px;
+  padding: 12px 8px;
 }
 
 .promise-item,
@@ -824,11 +852,12 @@ onPullDownRefresh(() => {
 .activity-card {
   position: relative;
   overflow: hidden;
-  min-height: 74px;
-  border-radius: 18px;
+  min-height: 70px;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  border-radius: 16px;
   padding: 11px;
-  background: linear-gradient(135deg, #fff2e8, #ffffff);
-  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.05);
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  box-shadow: 0 8px 18px rgba(17, 17, 17, 0.045);
 }
 
 .activity-card::after {
@@ -876,10 +905,10 @@ onPullDownRefresh(() => {
 
 .product-card {
   overflow: hidden;
-  border: 1px solid rgba(17, 17, 17, 0.025);
-  border-radius: 20px;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.06);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.055);
 }
 
 .product-card.sold-out {
@@ -941,7 +970,7 @@ onPullDownRefresh(() => {
 .product-name {
   min-height: 38px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.35;
 }
 
